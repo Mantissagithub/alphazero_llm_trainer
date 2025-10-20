@@ -197,8 +197,8 @@ def main():
     env = vf.load_environment("alphazero-llm-trainer", use_student_model=True)
     print(f"✓ dataset: {len(env.dataset)} examples")
 
-    checkpoint_dir = Path(args.checkpoint_dir)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
+    checkpoint_path = Path(checkpoint_dir)
+    checkpoint_path.mkdir(parents=True, exist_ok=True)
 
     print("\n" + "=" * 80)
     print("initializing models (vllm)")
@@ -283,7 +283,7 @@ def main():
             print(f"  🔄 reference model updated")
 
         if (idx + 1) % save_interval == 0:
-            ckpt = Path(checkpoint_dir) / f"student_step_{idx + 1}.pt"
+            ckpt = checkpoint_path / f"student_step_{idx + 1}.pt"
             student_model.save_checkpoint(str(ckpt))
             print(f"  💾 saved: {ckpt}")
 
@@ -307,7 +307,7 @@ def main():
     print(f"avg reward: {avg_reward:.3f}")
     print("=" * 80)
 
-    final = Path(checkpoint_dir) / "student_final.pt"
+    final = checkpoint_path / "student_final.pt"
     student_model.save_checkpoint(str(final))
     print(f"\n✓ final model: {final}")
 
