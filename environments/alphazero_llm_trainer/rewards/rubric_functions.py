@@ -28,15 +28,17 @@ def hre_reward_function(
     info: Dict,
     **kwargs
 ) -> float:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY not found in environment")
+    # COMMENTED OUT: OpenRouter API key check and client initialization
+    # api_key = os.environ.get("OPENROUTER_API_KEY")
+    # if not api_key:
+    #     raise ValueError("OPENROUTER_API_KEY not found in environment")
 
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key
-    )
+    # client = OpenAI(
+    #     base_url="https://openrouter.ai/api/v1",
+    #     api_key=api_key
+    # )
 
+    client = None  # Placeholder since OpenRouter is not being used
     terminal_checker = TerminalChecker(client)
     correct_answer = normalize_answer(answer)
     hre = HardRewardEstimator(terminal_checker, correct_answer)
@@ -53,15 +55,17 @@ def pre_reward_function(
     state: Dict,
     **kwargs
 ) -> float:
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY not found in environment")
+    # COMMENTED OUT: OpenRouter API key check and client initialization
+    # api_key = os.environ.get("OPENROUTER_API_KEY")
+    # if not api_key:
+    #     raise ValueError("OPENROUTER_API_KEY not found in environment")
 
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key
-    )
+    # client = OpenAI(
+    #     base_url="https://openrouter.ai/api/v1",
+    #     api_key=api_key
+    # )
 
+    client = None  # Placeholder since OpenRouter is not being used
     try:
         student = StudentModel()
         terminal_checker = TerminalChecker(client)

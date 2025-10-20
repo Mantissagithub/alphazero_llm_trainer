@@ -71,17 +71,18 @@ def parse_args():
 
 def initialize_components(tier: str, use_student_model: bool):
     """Initialize all components needed for training"""
-    # Check for API key
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        raise ValueError("OPENROUTER_API_KEY not found in environment")
+    # COMMENTED OUT: OpenRouter API key check
+    # api_key = os.environ.get("OPENROUTER_API_KEY")
+    # if not api_key:
+    #     raise ValueError("OPENROUTER_API_KEY not found in environment")
 
-    # Initialize OpenRouter client
-    client = OpenAI(
-        base_url="https://openrouter.ai/api/v1",
-        api_key=api_key
-    )
+    # # Initialize OpenRouter client
+    # client = OpenAI(
+    #     base_url="https://openrouter.ai/api/v1",
+    #     api_key=api_key
+    # )
 
+    client = None  # Placeholder since OpenRouter is not being used
     # Initialize models
     teacher_ensemble = TeacherEnsemble(client, tier=tier)
     terminal_checker = TerminalChecker(client)

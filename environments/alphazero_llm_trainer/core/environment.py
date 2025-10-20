@@ -17,15 +17,17 @@ class AlphaZeroLLMEnvironment(vf.SingleTurnEnv):
         use_student_model: bool = False,
         **kwargs
     ):
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
-            raise ValueError("OPENROUTER_API_KEY not found in environment")
+        # COMMENTED OUT: OpenRouter API key check and client initialization
+        # api_key = os.environ.get("OPENROUTER_API_KEY")
+        # if not api_key:
+        #     raise ValueError("OPENROUTER_API_KEY not found in environment")
 
-        self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key
-        )
+        # self.client = OpenAI(
+        #     base_url="https://openrouter.ai/api/v1",
+        #     api_key=api_key
+        # )
 
+        self.client = None  # Placeholder since OpenRouter is not being used
         self.tier = tier
         self.use_student_model = use_student_model
 

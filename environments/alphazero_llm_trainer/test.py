@@ -47,10 +47,11 @@ def test_environment_loading():
         import verifiers as vf
         from openai import OpenAI
 
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=os.environ.get("OPENROUTER_API_KEY")
-        )
+        # COMMENTED OUT: OpenRouter client initialization
+        # client = OpenAI(
+        #     base_url="https://openrouter.ai/api/v1",
+        #     api_key=os.environ.get("OPENROUTER_API_KEY")
+        # )
 
         env = vf.load_environment("alphazero-llm-trainer", tier="free", use_student_model=False)
         print("\n✅ Environment loaded via Verifiers")
@@ -82,30 +83,31 @@ def test_environment_loading():
             print(f"   Parallel scoring: {env.rubric.parallelize_scoring}")
 
         # Test a single rollout
-        if os.environ.get("OPENROUTER_API_KEY"):
-            print(f"\n✅ Testing single rollout...")
-            sample = env.dataset[0]
+        # COMMENTED OUT: OpenRouter API key check and single rollout test
+        # if os.environ.get("OPENROUTER_API_KEY"):
+        #     print(f"\n✅ Testing single rollout...")
+        #     sample = env.dataset[0]
 
-            try:
-                result = env.rollout_sync(
-                    client=client,
-                    model="google/gemini-2.0-flash-exp:free",
-                    prompt=sample['question'] if 'question' in sample else sample['prompt'],
-                    answer=sample.get('answer', ''),
-                    info=sample.get('info', {}),
-                    sampling_args={"max_tokens": 512, "temperature": 0.7}
-                )
+        #     try:
+        #         result = env.rollout_sync(
+        #             client=client,
+        #             model="google/gemini-2.0-flash-exp:free",
+        #             prompt=sample['question'] if 'question' in sample else sample['prompt'],
+        #             answer=sample.get('answer', ''),
+        #             info=sample.get('info', {}),
+        #             sampling_args={"max_tokens": 512, "temperature": 0.7}
+        #         )
 
-                print(f"   Completion received: {len(result[0])} messages")
-                print(f"   State keys: {list(result[1].keys())}")
+        #         print(f"   Completion received: {len(result[0])} messages")
+        #         print(f"   State keys: {list(result[1].keys())}")
 
-                if 'rewards' in result[1]:
-                    print(f"   Total reward: {result[1]['rewards'].get('total', 'N/A')}")
+        #         if 'rewards' in result[1]:
+        #             print(f"   Total reward: {result[1]['rewards'].get('total', 'N/A')}")
 
-            except Exception as e:
-                print(f"   ⚠️ Rollout test failed: {e}")
-        else:
-            print(f"\n⚠️  Skipping rollout test (no API key)")
+        #     except Exception as e:
+        #         print(f"   ⚠️ Rollout test failed: {e}")
+        # else:
+        #     print(f"\n⚠️  Skipping rollout test (no API key)")
 
     except Exception as e:
         print(f"\n❌ Error loading environment: {e}")
@@ -172,10 +174,13 @@ def test_rubric_functions():
         print(f"   hre_reward_function: {hre_reward_function.__name__}")
         print(f"   pre_reward_function: {pre_reward_function.__name__}")
 
-        api_key = os.environ.get("OPENROUTER_API_KEY")
-        if not api_key:
-            print("\n⚠️  Skipping reward calculation (no API key)")
-            return
+        # COMMENTED OUT: OpenRouter API key check
+        # api_key = os.environ.get("OPENROUTER_API_KEY")
+        # if not api_key:
+        #     print("\n⚠️  Skipping reward calculation (no API key)")
+        #     return
+        print("\n⚠️  Skipping reward calculation (OpenRouter disabled)")
+        return
 
         prompt = [{"role": "user", "content": "What is 2 + 2?"}]
         completion = [{"role": "assistant", "content": "2 + 2 = 4\n#### 4"}]
@@ -297,34 +302,37 @@ def test_api_connection():
     print("Testing API Connection")
     print("=" * 60)
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
+    # COMMENTED OUT: OpenRouter API key check and connection test
+    # api_key = os.environ.get("OPENROUTER_API_KEY")
 
-    if not api_key:
-        print("\n❌ OPENROUTER_API_KEY not found in environment")
-        return
+    # if not api_key:
+    #     print("\n❌ OPENROUTER_API_KEY not found in environment")
+    #     return
 
-    print(f"\n✅ API key found (length: {len(api_key)})")
-    print(f"   API Key: {api_key[:4]}...{api_key[-4:]}")
+    # print(f"\n✅ API key found (length: {len(api_key)})")
+    # print(f"   API Key: {api_key[:4]}...{api_key[-4:]}")
 
-    try:
-        from openai import OpenAI
+    # try:
+    #     from openai import OpenAI
 
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key
-        )
+    #     client = OpenAI(
+    #         base_url="https://openrouter.ai/api/v1",
+    #         api_key=api_key
+    #     )
 
-        response = client.chat.completions.create(
-            model="nvidia/nemotron-nano-9b-v2:free",
-            messages=[{"role": "user", "content": "Say 'Hello, World!' and nothing else."}],
-            max_tokens=10
-        )
+    #     response = client.chat.completions.create(
+    #         model="nvidia/nemotron-nano-9b-v2:free",
+    #         messages=[{"role": "user", "content": "Say 'Hello, World!' and nothing else."}],
+    #         max_tokens=10
+    #     )
 
-        print(f"   ✅ API connection successful")
-        print(f"   Response: {response.choices[0].message.content}")
+    #     print(f"   ✅ API connection successful")
+    #     print(f"   Response: {response.choices[0].message.content}")
 
-    except Exception as e:
-        print(f"   ❌ API connection failed: {e}")
+    # except Exception as e:
+    #     print(f"   ❌ API connection failed: {e}")
+
+    print("\n⚠️  API connection test skipped (OpenRouter disabled)")
 
 
 def test_no_step_method():
@@ -362,10 +370,13 @@ def test_mcts_components():
     print("Testing MCTS Components (External)")
     print("=" * 60)
 
-    api_key = os.environ.get("OPENROUTER_API_KEY")
-    if not api_key:
-        print("\n⚠️  Skipping MCTS test (no API key)")
-        return
+    # COMMENTED OUT: OpenRouter API key check
+    # api_key = os.environ.get("OPENROUTER_API_KEY")
+    # if not api_key:
+    #     print("\n⚠️  Skipping MCTS test (no API key)")
+    #     return
+    print("\n⚠️  Skipping MCTS test (OpenRouter disabled)")
+    return
 
     try:
         from openai import OpenAI
@@ -374,10 +385,11 @@ def test_mcts_components():
         from rewards import HardRewardEstimator
         from utils import normalize_answer
 
-        client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
-            api_key=api_key
-        )
+        # COMMENTED OUT: OpenRouter client initialization
+        # client = OpenAI(
+        #     base_url="https://openrouter.ai/api/v1",
+        #     api_key=api_key
+        # )
 
         print("\n✅ Components initialized:")
         teacher = TeacherEnsemble(client, tier="free")
