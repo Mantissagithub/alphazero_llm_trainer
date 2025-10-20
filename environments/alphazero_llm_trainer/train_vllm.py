@@ -22,50 +22,38 @@ def parse_args():
     parser.add_argument(
         '--num-examples',
         type=int,
-        default=350,
-        help='Number of training examples'
+        default=None,
+        help='Number of training examples (overrides config)'
     )
     parser.add_argument(
         '--checkpoint-dir',
         type=str,
-        default='./checkpoints',
-        help='Directory to save model checkpoints'
+        default=None,
+        help='Directory to save model checkpoints (overrides config)'
     )
     parser.add_argument(
         '--save-every',
         type=int,
-        default=50,
-        help='Save checkpoint every N examples'
+        default=None,
+        help='Save checkpoint every N examples (overrides config)'
     )
     parser.add_argument(
         '--log-interval',
         type=int,
-        default=10,
-        help='Log progress every N examples'
+        default=None,
+        help='Log progress every N examples (overrides config)'
     )
     parser.add_argument(
         '--use-grpo',
         action='store_true',
-        default=True,
-        help='Use GRPO (Group Relative Policy Optimization) for training'
+        default=None,
+        help='Use GRPO (overrides config)'
     )
     parser.add_argument(
-        '--grpo-beta',
-        type=float,
-        default=0.1,
-        help='GRPO KL penalty coefficient'
-    )
-    parser.add_argument(
-        '--grpo-clip',
-        type=float,
-        default=3.0,
-        help='GRPO advantage clipping threshold'
-    )
-    parser.add_argument(
-        '--reward-threshold',
-        type=float,
-        default=0.5,
-        help='Minimum reward for training trajectories (legacy mode only)'
+        '--use-legacy',
+        action='store_true',
+        default=False,
+        help='Use legacy training mode (overrides config)'
     )
     return parser.parse_args()
 
@@ -73,12 +61,19 @@ def parse_args():
 def train_on_trajectories_grpo(
     student_model: StudentModel,
     trajectories: List[Dict],
-    beta: float = 0.1,
-    clip_advantages: float = 3.0,
-    kl_weight: float = 0.01
+    config: Dict
 ):
     if student_model is None or not trajectories:
         return
+
+    # Get GRPO settings from config
+    grpo_config = config["student_training"]["grpo"]
+    beta = grpo_config["beta"]
+    clip_advantages = grpo_config["clip_advantages"]
+    normalize_advantages = grpo_config["normalize_advantages"]
+
+    kl_config = config["student_training"]["kl_penalty"]
+    kl_weight = kl_config["kl_weight"]
 
     print(f"  ✓ training with grpo on {len(trajectories)} trajectories")
 
@@ -94,12 +89,16 @@ def train_on_trajectories_grpo(
     grpo_loss = student_model.compute_grpo_loss(
         grouped_trajs,
         beta=beta,
-        clip_advantages=clip_advantages,
+        clip_advantages=clip_advantages if normalize_advantages else 0.0,
         kl_weight=kl_weight
     )
 
     grpo_loss.backward()
-    torch.nn.utils.clip_grad_norm_(student_model.model.parameters(), max_norm=1.0)
+
+    # Use max_grad_norm from config
+    max_grad_norm = config["training"]["max_grad_norm"]
+    torch.nn.utils.clip_grad_norm_(student_model.model.parameters(), max_norm=max_grad_norm)
+
     student_model.optimizer.step()
     student_model.optimizer.zero_grad()
 
@@ -111,10 +110,13 @@ def train_on_trajectories_grpo(
 def train_on_trajectories_legacy(
     student_model: StudentModel,
     trajectories: List[Dict],
-    reward_threshold: float = 0.5
+    config: Dict
 ):
     if student_model is None:
         return
+
+    # Get reward threshold from config
+    reward_threshold = config["student_training"]["min_reward_threshold"]
 
     high_reward = [t for t in trajectories if t.get("reward", 0) > reward_threshold]
 
@@ -136,6 +138,10 @@ def train_on_trajectories_legacy(
         loss.backward()
         total_loss += loss.item()
 
+    # Use max_grad_norm from config
+    max_grad_norm = config["training"]["max_grad_norm"]
+    torch.nn.utils.clip_grad_norm_(student_model.model.parameters(), max_norm=max_grad_norm)
+
     student_model.optimizer.step()
     student_model.optimizer.zero_grad()
     student_model.prepare_for_inference()
@@ -149,6 +155,20 @@ def main():
     args = parse_args()
     config = get_training_config()
 
+    # Use config values with optional arg overrides
+    num_examples = args.num_examples if args.num_examples is not None else config["dataset"]["train_size"]
+    checkpoint_dir = args.checkpoint_dir if args.checkpoint_dir is not None else config["checkpointing"]["save_dir"]
+    save_interval = args.save_every if args.save_every is not None else config["logging"]["save_interval"]
+    log_interval = args.log_interval if args.log_interval is not None else config["logging"]["log_interval"]
+
+    # Determine training mode from config or args
+    if args.use_legacy:
+        use_grpo = False
+    elif args.use_grpo is not None:
+        use_grpo = args.use_grpo
+    else:
+        use_grpo = config["student_training"]["grpo"]["enabled"]
+
     print("=" * 80)
     print("alphazero llm training - vllm accelerated")
     print("=" * 80)
@@ -160,11 +180,17 @@ def main():
     gpu_name = torch.cuda.get_device_name(0)
     gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
     print(f"GPU: {gpu_name} ({gpu_memory_gb:.1f} GB)")
-    print(f"Examples: {args.num_examples}")
-    print(f"Training Mode: {'GRPO' if args.use_grpo else 'Legacy Reward-Weighted SL'}")
-    if args.use_grpo:
-        print(f"GRPO Beta: {args.grpo_beta} | Clip: {args.grpo_clip}")
-    print(f"Checkpoint Dir: {args.checkpoint_dir}")
+    print(f"Examples: {num_examples}")
+    print(f"Training Mode: {'GRPO' if use_grpo else 'Legacy Reward-Weighted SL'}")
+    if use_grpo:
+        grpo_config = config["student_training"]["grpo"]
+        print(f"GRPO Beta: {grpo_config['beta']} | Clip: {grpo_config['clip_advantages']}")
+        print(f"Normalize Advantages: {grpo_config['normalize_advantages']}")
+    print(f"Checkpoint Dir: {checkpoint_dir}")
+    print(f"Save Interval: {save_interval} | Log Interval: {log_interval}")
+    print(f"Learning Rate: {config['student_training']['learning_rate']}")
+    print(f"Max Grad Norm: {config['training']['max_grad_norm']}")
+    print(f"Batch Size: {config['training']['batch_size']}")
     print("=" * 80)
 
     print("\nloading verifiers environment...")
@@ -185,7 +211,7 @@ def main():
     terminal_checker = TerminalChecker(device="cuda:0")
 
     print("\n[3/3] student model (unsloth)...")
-    student_model = StudentModel()
+    student_model = StudentModel(learning_rate=config["student_training"]["learning_rate"])
     print("✓ student loaded")
 
     print("\n" + "=" * 80)
@@ -196,10 +222,8 @@ def main():
     print(f"available: {gpu_memory_gb - vram_reserved_gb:.2f} GB")
     print("=" * 80)
 
-    num_examples = min(args.num_examples, len(env.dataset))
     dataset_subset = env.dataset.select(range(num_examples))
 
-    kl_weight = config["student_training"]["kl_penalty"]["kl_weight"]
     update_ref_every = config["student_training"]["kl_penalty"]["update_ref_every"]
 
     total_correct = 0
@@ -241,31 +265,29 @@ def main():
         print(f"  reward: {best_reward:.3f} | nodes: {tree_size} | trajectories: {len(trajectories)}")
 
         if trajectories:
-            if args.use_grpo:
+            if use_grpo:
                 train_on_trajectories_grpo(
                     student_model,
                     trajectories,
-                    beta=args.grpo_beta,
-                    clip_advantages=args.grpo_clip,
-                    kl_weight=kl_weight
+                    config
                 )
             else:
                 train_on_trajectories_legacy(
                     student_model,
                     trajectories,
-                    reward_threshold=args.reward_threshold
+                    config
                 )
 
         if (idx + 1) % update_ref_every == 0:
             student_model.update_ref_model()
             print(f"  🔄 reference model updated")
 
-        if (idx + 1) % args.save_every == 0:
-            ckpt = checkpoint_dir / f"student_step_{idx + 1}.pt"
+        if (idx + 1) % save_interval == 0:
+            ckpt = Path(checkpoint_dir) / f"student_step_{idx + 1}.pt"
             student_model.save_checkpoint(str(ckpt))
             print(f"  💾 saved: {ckpt}")
 
-        if (idx + 1) % args.log_interval == 0:
+        if (idx + 1) % log_interval == 0:
             acc = total_correct / (idx + 1)
             avg_r = total_reward / (idx + 1)
             print("\n" + "-" * 80)
@@ -285,7 +307,7 @@ def main():
     print(f"avg reward: {avg_reward:.3f}")
     print("=" * 80)
 
-    final = checkpoint_dir / "student_final.pt"
+    final = Path(checkpoint_dir) / "student_final.pt"
     student_model.save_checkpoint(str(final))
     print(f"\n✓ final model: {final}")
 

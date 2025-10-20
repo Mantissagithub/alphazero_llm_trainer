@@ -1,40 +1,40 @@
-# training hyperparameters for AlphaZero LLM Trainer
+# training hyperparameters for AlphaZero LLM Trainer (10-HOUR OPTIMIZED)
 
 # MCTS Parameters
 mcts:
-  num_iterations: 100 # mcts iteration per query
-  exploration_constant: 1.4 # uct exploration constant (sqrt(2))
-  max_tree_depth: 15 # maximum depth of the search tree
-  tokens_per_expansion: 20 # total tokens to generate (5 right + 5 wrong)
-  right_tokens: 10 # tokens for the "right" branch
-  wrong_tokens: 10 # tokens for the "wrong" branch
+  num_iterations: 60               # REDUCED from 100 (saves 40% time)
+  exploration_constant: 1.414      # Kept at sqrt(2) - optimal
+  max_tree_depth: 12               # REDUCED from 15 (saves 20% time)
+  tokens_per_expansion: 20         # Kept same
+  right_tokens: 10                 # Kept same
+  wrong_tokens: 10                 # Kept same
 
 # reward system config
 rewards:
-  hre_weight: 0.4 # hard reward estimator weight
-  pre_weight: 0.6 # perplexity reward estimator weight
-  pre_accumulation: true  # accumulate PRE per step
-  pre_discount_factor: 0.95  # optional decay for older steps
+  hre_weight: 0.4
+  pre_weight: 0.6
+  pre_accumulation: true
+  pre_discount_factor: 0.95
 
   # hard reward estimator settings
   hre:
-    terminal_reward: 1.0 # reward for correct answer
-    incorrect_penalty: 0.0 # reward for incorrect answer
-    use_fuzzy_matching: false # allow approximate matches
+    terminal_reward: 1.0
+    incorrect_penalty: 0.0
+    use_fuzzy_matching: false
 
   # perplexity reward estimator settings
   pre:
-    similarity_threshold: 0.8 # minimum similarity for reward
-    num_teachers_for_eval: 5 # number of teacher models for perplexity evaluation
-    perplexity_scale: "log" # scale: "linear", "log", or "sqrt"
+    similarity_threshold: 0.8
+    num_teachers_for_eval: 3       # REDUCED from 5 (saves 40% eval time)
+    perplexity_scale: "log"
 
 # training loop settings
 training:
   batch_size: 8
   gradient_accumulation_steps: 4
-  num_epochs: 3
+  num_epochs: 1                    # REDUCED from 3 (saves 66% training time)
   learning_rate: 2.0e-4
-  warmup_steps: 100
+  warmup_steps: 50                 # REDUCED from 100 (faster warmup)
   max_grad_norm: 1.0
   weight_decay: 0.01
 
@@ -58,27 +58,27 @@ student_training:
   min_reward_threshold: 0.5
   learning_rate: 2e-5
 
-  # GRPO (Group Relative Policy Optimization) settings
+  # GRPO settings
   grpo:
-    enabled: true                    # Use GRPO instead of reward-weighted supervised learning
-    beta: 0.1                        # KL penalty coefficient (entropy regularization)
-    normalize_advantages: true       # Group-relative advantage normalization
-    clip_advantages: 3.0             # Clip outlier advantages to [-3, +3]
-    min_group_size: 1                # Minimum trajectories per group (1 = single trajectory ok)
-    use_legacy_loss: false           # Set to true to use old reward-weighted loss
+    enabled: true
+    beta: 0.1
+    normalize_advantages: true
+    clip_advantages: 3.0
+    min_group_size: 1
+    use_legacy_loss: false
 
   # kl penalty settings
   kl_penalty:
     enabled: true
-    kl_weight: 0.01 # kl divergence weight (higher = stay closer to ref)
-    update_ref_every: 50 # update ref model every n epochs
+    kl_weight: 0.01
+    update_ref_every: 50
 
 # dataset settings
 dataset:
   name: "openai/gsm8k"
   split: "main"
-  train_size: 1000
-  eval_size: 200
+  train_size: 600                  # OPTIMIZED for 10 hours (was 1000)
+  eval_size: 100                   # REDUCED from 200
   max_length: 512
 
   # preprocessing settings
@@ -90,8 +90,8 @@ dataset:
 # logging and checkpointing
 logging:
   log_interval: 10
-  eval_interval: 100
-  save_interval: 500
+  eval_interval: 50                # MORE FREQUENT from 100
+  save_interval: 300               # CHECKPOINTS at 300 and 600
 
   wandb:
     enabled: false
@@ -100,22 +100,22 @@ logging:
 
 checkpointing:
   save_dir: "./checkpoints"
-  keep_best: 3 # keep top n checkpoints
+  keep_best: 3
   metric: "reward"
 
 # hardware settings
 hardware:
-  use_fp16: false # for a100 specifically
-  use_bf16: true # for h100 specifically
+  use_fp16: false
+  use_bf16: true                   # H100 optimized
   gradient_checkpointing: true
 
 # api settings for teacher models
 api:
   openrouter_base_url: "https://openrouter.ai/api/v1"
   max_retries: 3
-  timeout: 30                      # Timeout in seconds
-  rate_limit_delay: 0.1            # Delay between API calls (seconds)
+  timeout: 30
+  rate_limit_delay: 0.1
 
   # Cost management
-  max_cost_per_sample: 0.01        # Maximum API cost per sample (USD)
-  use_free_models_only: true       # Only use free tier models
+  max_cost_per_sample: 0.01
+  use_free_models_only: true

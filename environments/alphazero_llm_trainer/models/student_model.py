@@ -12,18 +12,20 @@ class StudentModel:
         model_name: Optional[str] = None,
         max_seq_length: Optional[int] = None,
         load_in_4bit: bool = True,
-        device: str = "auto"
+        device: str = "auto",
+        learning_rate: Optional[float] = None
     ):
         self.config = get_model_config()
         self.model_name = model_name or self.config["student_model"]["name"]
         self.max_seq_length = max_seq_length or self.config["student_model"]["max_seq_length"]
         self.load_in_4bit = load_in_4bit
         self.device = device
+        self.learning_rate = learning_rate or 2e-5  # Default fallback
 
         self.model = None
         self.tokenizer = None
         self._load_model()
-        self.optimizer = AdamW(self.model.parameters(), lr=2e-5)
+        self.optimizer = AdamW(self.model.parameters(), lr=self.learning_rate)
         self.ref_model = None
         self._create_ref_model()
 
