@@ -4,6 +4,8 @@
 
 See the `environments/alphazero_llm_trainer/` folder for implementation details.
 
+Prime Intellect Environment link: [pradheep/alphago-llm-trainer](https://app.primeintellect.ai/dashboard/environments/pradheep/alphazero-llm-trainer)
+
 ---
 
 ## Overview
