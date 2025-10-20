@@ -1,0 +1,64 @@
+# model config file for AlphaZero LLM Trainer
+
+# primary student model begin trained
+student_model:
+  name: "unsloth/llama-3.2-3b-bnb-4bit"
+  description: "Llama 3.2 3B with 4-bit quantization for local training"
+  max_seq_length: 2048
+  load_in_4bit: true
+  dtype: null  # Auto-detect
+
+  # LoRA configuration for efficient fine-tuning
+  lora_config:
+    r: 32                    # LoRA rank
+    lora_alpha: 32           # LoRA scaling factor
+    target_modules:
+      - "q_proj"
+      - "k_proj"
+      - "v_proj"
+      - "o_proj"
+      - "gate_proj"
+      - "up_proj"
+      - "down_proj"
+    lora_dropout: 0.05
+    bias: "none"
+    use_gradient_checkpointing: true
+    random_state: 42
+
+# alternative student model (for experimentation)
+alternative_student_models:
+  llama_7b:
+    name: "unsloth/llama-3.2-7b-bnb-4bit"
+    max_seq_length: 2048
+    load_in_4bit: true
+
+  qwen_3b:
+    name: "unsloth/qwen2.5-3b-bnb-4bit"
+    max_seq_length: 2048
+    load_in_4bit: true
+
+  phi_3b:
+    name: "unsloth/phi-3-mini-4k-bnb-4bit"
+    max_seq_length: 4096
+    load_in_4bit: true
+
+# small language model (slm) for utility tasks
+terminal_checker:
+  name: "nvidia/nemotron-nano-9b-v2:free"
+  description: "Fast, free model for terminal state detection and perplexity baseline"
+  max_tokens: 50
+  temperature: 0.0
+  use_for_perplexity_baseline: true
+
+# embedding model for similarity calculations
+embedding_model:
+  name: "text-embedding-3-small"
+  provider: "openai"
+  dimensions: 1536
+
+# model loading settings
+loading:
+  device_map: "auto"
+  torch_dtype: "auto"
+  trust_remote_code: true
+  low_cpu_mem_usage: true

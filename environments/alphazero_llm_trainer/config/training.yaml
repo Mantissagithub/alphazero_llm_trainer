@@ -1,0 +1,121 @@
+# training hyperparameters for AlphaZero LLM Trainer
+
+# MCTS Parameters
+mcts:
+  num_iterations: 100 # mcts iteration per query
+  exploration_constant: 1.4 # uct exploration constant (sqrt(2))
+  max_tree_depth: 15 # maximum depth of the search tree
+  tokens_per_expansion: 20 # total tokens to generate (5 right + 5 wrong)
+  right_tokens: 10 # tokens for the "right" branch
+  wrong_tokens: 10 # tokens for the "wrong" branch
+
+# reward system config
+rewards:
+  hre_weight: 0.4 # hard reward estimator weight
+  pre_weight: 0.6 # perplexity reward estimator weight
+  pre_accumulation: true  # accumulate PRE per step
+  pre_discount_factor: 0.95  # optional decay for older steps
+
+  # hard reward estimator settings
+  hre:
+    terminal_reward: 1.0 # reward for correct answer
+    incorrect_penalty: 0.0 # reward for incorrect answer
+    use_fuzzy_matching: false # allow approximate matches
+
+  # perplexity reward estimator settings
+  pre:
+    similarity_threshold: 0.8 # minimum similarity for reward
+    num_teachers_for_eval: 5 # number of teacher models for perplexity evaluation
+    perplexity_scale: "log" # scale: "linear", "log", or "sqrt"
+
+# training loop settings
+training:
+  batch_size: 8
+  gradient_accumulation_steps: 4
+  num_epochs: 3
+  learning_rate: 2.0e-4
+  warmup_steps: 100
+  max_grad_norm: 1.0
+  weight_decay: 0.01
+
+  # optimizer settings
+  optimizer:
+    type: "adamw_8bit"
+    betas: [0.9, 0.999]
+    eps: 1e-8
+
+  # learning rate scheduler settings
+  scheduler:
+    type: "cosine"
+    num_cycles: 0.5
+
+# student model training settings
+student_training:
+  enabled: true
+  epsilon_start: 0.5
+  epsilon_end: 0.1
+  epsilon_decay: 0.995
+  min_reward_threshold: 0.5
+  learning_rate: 2e-5
+
+  # GRPO (Group Relative Policy Optimization) settings
+  grpo:
+    enabled: true                    # Use GRPO instead of reward-weighted supervised learning
+    beta: 0.1                        # KL penalty coefficient (entropy regularization)
+    normalize_advantages: true       # Group-relative advantage normalization
+    clip_advantages: 3.0             # Clip outlier advantages to [-3, +3]
+    min_group_size: 1                # Minimum trajectories per group (1 = single trajectory ok)
+    use_legacy_loss: false           # Set to true to use old reward-weighted loss
+
+  # kl penalty settings
+  kl_penalty:
+    enabled: true
+    kl_weight: 0.01 # kl divergence weight (higher = stay closer to ref)
+    update_ref_every: 50 # update ref model every n epochs
+
+# dataset settings
+dataset:
+  name: "openai/gsm8k"
+  split: "main"
+  train_size: 1000
+  eval_size: 200
+  max_length: 512
+
+  # preprocessing settings
+  preprocessing:
+    shuffle: true
+    remove_duplicates: true
+    seed: 42
+
+# logging and checkpointing
+logging:
+  log_interval: 10
+  eval_interval: 100
+  save_interval: 500
+
+  wandb:
+    enabled: false
+    project_name: "alphazero-llm-trainer"
+    entity: "vidhyaprakash2510"
+
+checkpointing:
+  save_dir: "./checkpoints"
+  keep_best: 3 # keep top n checkpoints
+  metric: "reward"
+
+# hardware settings
+hardware:
+  use_fp16: false # for a100 specifically
+  use_bf16: true # for h100 specifically
+  gradient_checkpointing: true
+
+# api settings for teacher models
+api:
+  openrouter_base_url: "https://openrouter.ai/api/v1"
+  max_retries: 3
+  timeout: 30                      # Timeout in seconds
+  rate_limit_delay: 0.1            # Delay between API calls (seconds)
+
+  # Cost management
+  max_cost_per_sample: 0.01        # Maximum API cost per sample (USD)
+  use_free_models_only: true       # Only use free tier models

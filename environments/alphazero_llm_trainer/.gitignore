@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+unsloth_compiled_cache/
+checkpoints/
+.env
+*.pt
+*.bin
+*.safetensors
+.venv/
+venv/

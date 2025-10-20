@@ -1,0 +1,23 @@
+# Core ML libraries
+torch>=2.0.0
+transformers>=4.40.0
+datasets>=2.18.0
+accelerate>=0.28.0
+
+# vLLM for fast inference
+vllm>=0.6.0
+
+# Training libraries
+unsloth>=2024.8
+peft>=0.10.0
+bitsandbytes>=0.43.0
+flash-attn>=2.5.0
+
+# Verifiers framework
+verifiers>=0.1.5
+
+# Utilities
+python-dotenv>=1.0.0
+pyyaml>=6.0
+scikit-learn>=1.4.0
+numpy>=1.26.0

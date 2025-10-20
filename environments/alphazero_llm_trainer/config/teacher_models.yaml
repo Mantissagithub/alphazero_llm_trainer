@@ -1,0 +1,108 @@
+# teacher model config for tree population and evaluation
+
+# free tier models (for local dev)
+free_tier:
+  - name: "deepseek/deepseek-r1-0528:free"
+    provider: "openrouter"
+    cost: 0.0
+    context_length: 32768
+    strengths: ["reasoning", "math"]
+
+  - name: "openai/gpt-oss-20b:free"
+    provider: "openrouter"
+    cost: 0.0
+    context_length: 1048576
+    strengths: ["fast", "reliable", "math"]
+
+  - name: "meta-llama/llama-3.3-8b-instruct:free"
+    provider: "openrouter"
+    cost: 0.0
+    context_length: 131072
+    strengths: ["math", "reasoning"]
+
+  - name: "alibaba/tongyi-deepresearch-30b-a3b:free"
+    provider: "openrouter"
+    cost: 0.0
+    context_length: 128000
+    strengths: ["reasoning", "coding"]
+
+  - name: "qwen/qwen3-235b-a22b:free"
+    provider: "openrouter"
+    cost: 0.0
+    context_length: 131072
+    strengths: ["math", "multilingual"]
+
+# production tier models (for prime intellect with credits)
+production_tier:
+  - name: "openai/gpt-4o"
+    provider: "openrouter"
+    cost: 0.0025
+    context_length: 128000
+    strengths: ["reasoning", "math", "comprehensive"]
+
+  - name: "anthropic/claude-sonnet-4-20250514"
+    provider: "openrouter"
+    cost: 0.003
+    context_length: 200000
+    strengths: ["reasoning", "analysis", "math"]
+
+  - name: "google/gemini-pro-1.5"
+    provider: "openrouter"
+    cost: 0.00125
+    context_length: 2097152
+    strengths: ["reasoning", "long-context"]
+
+  - name: "meta-llama/llama-3.1-405b-instruct"
+    provider: "openrouter"
+    cost: 0.003
+    context_length: 131072
+    strengths: ["reasoning", "math", "powerful"]
+
+  - name: "x-ai/grok-2-1212"
+    provider: "openrouter"
+    cost: 0.002
+    context_length: 131072
+    strengths: ["reasoning", "creative"]
+
+  - name: "qwen/qwen-2.5-72b-instruct"
+    provider: "openrouter"
+    cost: 0.0009
+    context_length: 131072
+    strengths: ["math", "coding", "cost-effective"]
+
+  - name: "deepseek/deepseek-chat"
+    provider: "openrouter"
+    cost: 0.0014
+    context_length: 65536
+    strengths: ["reasoning", "math", "coding"]
+
+  - name: "mistralai/mistral-large-2411"
+    provider: "openrouter"
+    cost: 0.002
+    context_length: 131072
+    strengths: ["reasoning", "multilingual"]
+
+  - name: "cohere/command-r-plus"
+    provider: "openrouter"
+    cost: 0.003
+    context_length: 128000
+    strengths: ["reasoning", "retrieval"]
+
+  - name: "01-ai/yi-large"
+    provider: "openrouter"
+    cost: 0.003
+    context_length: 32768
+    strengths: ["reasoning", "chinese-english"]
+
+# model selection strategy
+selection_strategy:
+  development:
+    mode: "free_tier"
+    num_models: 5
+    sampling: "random"
+
+  production:
+    mode: "mixed"
+    num_models: 10
+    sampling: "diverse"
+    cost_limit:  0.1  # Max cost per query (USD)
