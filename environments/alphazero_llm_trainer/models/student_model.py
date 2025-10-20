@@ -20,7 +20,12 @@ class StudentModel:
         self.max_seq_length = max_seq_length or self.config["student_model"]["max_seq_length"]
         self.load_in_4bit = load_in_4bit
         self.device = device
-        self.learning_rate = learning_rate or 2e-5  # Default fallback
+
+        # Ensure learning_rate is a float
+        if learning_rate is not None:
+            self.learning_rate = float(learning_rate)
+        else:
+            self.learning_rate = 2e-5  # Default fallback
 
         self.model = None
         self.tokenizer = None
