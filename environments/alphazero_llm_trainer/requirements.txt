@@ -21,3 +21,4 @@ python-dotenv>=1.0.0
 pyyaml>=6.0
 scikit-learn>=1.4.0
 numpy>=1.26.0
+sentence-transformers>=2.2.0

@@ -95,10 +95,10 @@ class MCTSSystem:
 
         all_outputs = right_outputs + wrong_outputs
 
-        from utils import calculate_embedding_similarity
+        from utils import calculate_local_similarity
         similarities = []
         for output in all_outputs:
-            sim = calculate_embedding_similarity(student_token, output, self.teacher_ensemble.client)
+            sim = calculate_local_similarity(student_token, output)
             similarities.append(sim)
 
             child = TreeNode(

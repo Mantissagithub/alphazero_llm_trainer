@@ -2,11 +2,50 @@ import numpy as np
 from openai import OpenAI
 from typing import List, Union, Optional
 from sklearn.metrics.pairwise import cosine_similarity
+import torch
 from prompts.terminal_check import (
     check_terminal_state_prompt,
     extract_answer_prompt,
     get_baseline_perplexity_prompt
 )
+
+
+# Global embedding model for local similarity calculations (lazy loaded)
+_embedding_model = None
+
+
+def _get_embedding_model():
+    global _embedding_model
+    if _embedding_model is None:
+        try:
+            from sentence_transformers import SentenceTransformer
+            print("Loading local embedding model (all-MiniLM-L6-v2)...")
+            _embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+            if torch.cuda.is_available():
+                _embedding_model = _embedding_model.cuda()
+            print("✓ Local embedding model loaded")
+        except Exception as e:
+            print(f"Warning: Could not load sentence-transformers: {e}")
+            _embedding_model = False  # Mark as failed to avoid repeated attempts
+    return _embedding_model if _embedding_model is not False else None
+
+
+def calculate_local_similarity(text1: str, text2: str) -> float:
+    model = _get_embedding_model()
+    if model is None:
+        print("Warning: Local embedding model unavailable, using fallback similarity")
+        return 0.5
+
+    try:
+        emb1 = model.encode([text1], convert_to_tensor=True)
+        emb2 = model.encode([text2], convert_to_tensor=True)
+        similarity = torch.nn.functional.cosine_similarity(emb1, emb2, dim=1).item()
+        # Normalize from [-1, 1] to [0, 1]
+        normalized_sim = (similarity + 1) / 2
+        return float(normalized_sim)
+    except Exception as e:
+        print(f"Error calculating local similarity: {e}")
+        return 0.5
 
 
 def calculate_cosine_similarity(vec1: np.ndarray, vec2: np.ndarray) -> float:

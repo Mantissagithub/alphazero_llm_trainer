@@ -12,6 +12,7 @@ dependencies = [
     "python-dotenv>=1.1.1",
     "pyyaml",
     "scikit-learn>=1.7.2",
+    "sentence-transformers>=2.2.0",
     "torch==2.8.0",
     "unsloth>=2024.8",
     "verifiers>=0.1.5.post0",
