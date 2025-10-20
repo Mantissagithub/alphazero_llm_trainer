@@ -28,13 +28,13 @@ class VLLMTeacherEnsemble:
               model=model_name,
               quantization="bitsandbytes",
               dtype="bfloat16",
-              gpu_memory_utilization=0.15,
-              max_model_len=2048,
+              gpu_memory_utilization=0.10,
+              max_model_len=1024,
               enforce_eager=False,
               trust_remote_code=True,
               disable_log_stats=False,
               tensor_parallel_size=1,
-              max_num_seqs=16,
+              max_num_seqs=4,
             )
 
             self.teachers.append({
