@@ -16,7 +16,7 @@ from rewards import HardRewardEstimator, PerplexityRewardEstimator, CombinedRewa
 from utils import normalize_answer
 from config import get_training_config
 
-
+print("running alphazero llm trainer with vllm...")
 def parse_args():
     parser = argparse.ArgumentParser(description='train alphazero llm with vllm')
     parser.add_argument(
