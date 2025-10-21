@@ -77,8 +77,8 @@ student_training:
 dataset:
   name: "openai/gsm8k"
   split: "main"
-  train_size: 600                  # OPTIMIZED for 10 hours (was 1000)
-  eval_size: 100                   # REDUCED from 200
+  train_size: 50        
+  eval_size: 20
   max_length: 512
 
   # preprocessing settings

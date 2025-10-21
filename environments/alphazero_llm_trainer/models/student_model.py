@@ -182,7 +182,8 @@ class StudentModel:
                 index=token_ids.unsqueeze(-1)
             ).squeeze(-1)
 
-            pg_loss = -(selected_log_probs.sum() * advantage)
+            # pg_loss = -(selected_log_probs.sum() * advantage)
+            pg_loss = -(selected_log_probs.mean() * advantage)
 
             probs = torch.nn.functional.softmax(logits[:, :-1, :], dim=-1)
             ref_probs = torch.nn.functional.softmax(ref_logits[:, :-1, :], dim=-1)
