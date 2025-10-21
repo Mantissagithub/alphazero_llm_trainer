@@ -3,7 +3,8 @@
 ### Overview
 - **Environment ID**: `alphazero-llm-trainer`
 - **Short description**: AlphaZero-style MCTS-guided training for LLMs on mathematical reasoning tasks
-- **Tags**: reasoning, math, mcts, reinforcement-learning, alphazero, gsm8k
+- **Tags**: math, reasoning, reinforcement-learning, mcts, grpo, eval, gsm8k, llm
+
 
 ### Datasets
 - **Primary dataset(s)**: GSM8K (Grade School Math 8K) - mathematical word problems with natural language solutions
