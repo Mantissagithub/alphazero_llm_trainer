@@ -239,7 +239,7 @@ def main():
     print("=" * 80)
 
     for idx, example in enumerate(dataset_subset):
-        question = example['question']
+        question = example['prompt']  # verifiers dataset uses 'prompt' key
         reference = example['answer']
 
         print(f"\n[{idx + 1}/{len(dataset_subset)}] {question[:70]}...")
