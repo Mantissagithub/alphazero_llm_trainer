@@ -197,6 +197,11 @@ def main():
     env = vf.load_environment("alphazero-llm-trainer", use_student_model=True)
     print(f"✓ dataset: {len(env.dataset)} examples")
 
+    # Ensure num_examples doesn't exceed dataset size
+    if num_examples > len(env.dataset):
+        print(f"⚠️  Warning: Requested {num_examples} examples, but dataset only has {len(env.dataset)}. Using {len(env.dataset)} instead.")
+        num_examples = len(env.dataset)
+
     checkpoint_path = Path(checkpoint_dir)
     checkpoint_path.mkdir(parents=True, exist_ok=True)
 
