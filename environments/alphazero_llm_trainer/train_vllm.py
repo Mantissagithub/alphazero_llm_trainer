@@ -239,6 +239,10 @@ def main():
     else:
         use_grpo = config["student_training"]["grpo"]["enabled"]
 
+    # Read MCTS config overrides from environment variables
+    max_tree_depth = int(os.getenv('MAX_TREE_DEPTH', config['mcts']['max_tree_depth']))
+    num_mcts_iterations = int(os.getenv('NUM_MCTS_ITERATIONS', config['mcts']['num_iterations']))
+
     print("=" * 80)
     print("alphazero llm training - vllm accelerated")
     print("=" * 80)
@@ -251,6 +255,7 @@ def main():
     gpu_memory_gb = torch.cuda.get_device_properties(0).total_memory / 1e9
     print(f"GPU: {gpu_name} ({gpu_memory_gb:.1f} GB)")
     print(f"Examples: {num_examples}")
+    print(f"MCTS Iterations: {num_mcts_iterations} | Max Depth: {max_tree_depth}")
     print(f"Training Mode: {'GRPO' if use_grpo else 'Legacy Reward-Weighted SL'}")
     if use_grpo:
         grpo_config = config["student_training"]["grpo"]
@@ -322,7 +327,9 @@ def main():
             teacher_ensemble=teacher_ensemble,
             student_model=student_model,
             terminal_checker=terminal_checker,
-            reward_system=reward_system
+            reward_system=reward_system,
+            num_iterations=num_mcts_iterations,
+            max_depth=max_tree_depth
         )
 
         print("  running mcts...")
