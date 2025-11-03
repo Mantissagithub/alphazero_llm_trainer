@@ -2,7 +2,7 @@
 name = "alphazero-llm-trainer"
 description = "AlphaZero-inspired MCTS environment for training LLMs through tree search and policy learning with teacher ensemble guidance and dual reward systems"
 keywords = ["placeholder-tag", "train", "eval"]
-version = "0.1.9"
+version = "0.1.13"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -37,13 +37,3 @@ packages = ["."]
 
 [tool.verifiers]
 training_script = "train_vllm.py"
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build.targets.wheel]
-packages = ["environments/alphazero_llm_trainer"]
-
-[tool.uv.extra-build-dependencies]
-flash-attn = ["torch"]

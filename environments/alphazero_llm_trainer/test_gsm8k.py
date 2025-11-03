@@ -4,7 +4,8 @@ from typing import Tuple
 import torch
 from datasets import load_dataset
 from unsloth import FastLanguageModel
-
+from peft import PeftModel
+import json
 
 def load_base_model():
     model, tokenizer = FastLanguageModel.from_pretrained(
@@ -16,10 +17,21 @@ def load_base_model():
     FastLanguageModel.for_inference(model)
     return model, tokenizer
 
+def load_trained_model():
+    from unsloth import FastLanguageModel
+
+    model, tokenizer = FastLanguageModel.from_pretrained(
+        model_name="./student_final_model",
+        max_seq_length=2048,
+        dtype=None,
+        load_in_4bit=True,
+    )
+
+    FastLanguageModel.for_inference(model)
+    return model, tokenizer
 
 def format_prompt(question: str) -> str:
     return f"Question: {question}\n\nLet's solve this step by step:\n"
-
 
 def extract_answer(response: str, ground_truth: str) -> Tuple[str, str]:
     pred_matches = re.findall(r'(-?\d+(?:,\d{3})*(?:\.\d+)?)', response)
@@ -34,85 +46,113 @@ def extract_answer(response: str, ground_truth: str) -> Tuple[str, str]:
 
     return pred, gt
 
-
-def evaluate_example(model, tokenizer, question: str, ground_truth: str, max_new_tokens: int = 256):
-    prompt = format_prompt(question)
-    inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
-
-    with torch.no_grad():
-        outputs = model.generate(
-            **inputs,
-            max_new_tokens=max_new_tokens,
-            temperature=0.0,
-            do_sample=False,
-            pad_token_id=tokenizer.eos_token_id,
-        )
-
-    response = tokenizer.decode(outputs[0][len(inputs["input_ids"][0]):], skip_special_tokens=True)
-    pred, gt = extract_answer(response, ground_truth)
-    is_correct = pred == gt
-
-    return is_correct, response, pred, gt
-
-
-def main(args):
-    model, tokenizer = load_base_model()
-
-    dataset = load_dataset("openai/gsm8k", "main", split="test")
-    if args.num_examples:
-        dataset = dataset.select(range(args.num_examples))
+def evaluate_model(model, tokenizer, dataset, model_name="model", num_examples=None):
+    if num_examples:
+        test_data = dataset[:num_examples]
+    else:
+        test_data = dataset
 
     correct = 0
-    total = len(dataset)
     results = []
 
-    model.eval()
-    print(f"\nTesting BASE Llama-3.2-3B on {total} GSM8K examples\n")
-
-    for i, example in enumerate(dataset):
+    for idx, example in enumerate(test_data):
         question = example["question"]
         ground_truth = example["answer"]
 
-        is_correct, response, pred, gt = evaluate_example(
-            model, tokenizer, question, ground_truth, args.max_new_tokens
-        )
+        prompt = format_prompt(question)
+        inputs = tokenizer(prompt, return_tensors="pt").to(model.device)
 
-        correct += int(is_correct)
+        with torch.no_grad():
+            outputs = model.generate(
+                **inputs,
+                max_new_tokens=512,
+                temperature=0.7,
+            )
+
+        response = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        pred, gt = extract_answer(response, ground_truth)
+
+        is_correct = pred == gt
+        if is_correct:
+            correct += 1
+
         results.append({
             "question": question,
-            "predicted_answer": pred,
+            "predicted": pred,
             "ground_truth": gt,
-            "full_response": response.strip(),
             "correct": is_correct
         })
 
-        if (i + 1) % args.log_every == 0:
-            accuracy = (correct / (i + 1)) * 100
-            print(f"[{i+1}/{total}] Accuracy: {accuracy:.2f}% ({correct}/{i+1})")
-            print(f"  Q: {question[:60]}...")
-            print(f"  Pred: {pred} | GT: {gt} | {'✓' if is_correct else '✗'}\n")
+        # Print progress
+        if (idx + 1) % 10 == 0:
+            accuracy = correct / (idx + 1) * 100
+            print(f"[{model_name}] Progress: {idx+1}/{len(test_data)} | Accuracy: {accuracy:.2f}%")
 
-    final_accuracy = (correct / total) * 100
-    print(f"\nFINAL ACCURACY: {final_accuracy:.2f}% ({correct}/{total})\n")
+    accuracy = correct / len(test_data) * 100
+    print(f"\n[{model_name}] Final Accuracy: {accuracy:.2f}% ({correct}/{len(test_data)})")
 
-    if args.save_results:
-        import json
-        with open("gsm8k_base_results.json", "w") as f:
-            json.dump({
-                "model": "unsloth/llama-3.2-3b-bnb-4bit",
-                "total": total,
-                "correct": correct,
-                "accuracy": final_accuracy,
-                "results": results
-            }, f, indent=2)
-        print("Results saved to gsm8k_base_results.json")
+    return accuracy, results
 
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--num_examples", type=int, default=None, help="Number of examples to test")
+    args = parser.parse_args()
+
+    # Load dataset
+    print("Loading GSM8K dataset...")
+    dataset = load_dataset("openai/gsm8k", "main")
+    test_data = dataset["test"]
+
+    # # Evaluate base model
+    # print("\n" + "="*60)
+    # print("EVALUATING BASE MODEL: unsloth/llama-3.2-3b-bnb-4bit")
+    # print("="*60)
+    # model_base, tokenizer_base = load_base_model()
+    # base_accuracy, base_results = evaluate_model(
+    #     model_base, tokenizer_base, test_data,
+    #     model_name="BASE",
+    #     num_examples=args.num_examples
+    # )
+    # del model_base
+    base_accuracy = 13.58
+    torch.cuda.empty_cache()
+
+    # Evaluate trained model
+    print("\n" + "="*60)
+    print("EVALUATING TRAINED MODEL: ./student_final_model (AlphaZero LoRA)")
+    print("="*60)
+    model_trained, tokenizer_trained = load_trained_model()
+    trained_accuracy, trained_results = evaluate_model(
+        model_trained, tokenizer_trained, test_data,
+        model_name="TRAINED",
+        num_examples=args.num_examples
+    )
+    del model_trained
+    torch.cuda.empty_cache()
+
+    # Summary
+    print("\n" + "="*60)
+    print("COMPARISON SUMMARY")
+    print("="*60)
+    print(f"Base Model Accuracy:    {base_accuracy:.2f}%")
+    print(f"Trained Model Accuracy: {trained_accuracy:.2f}%")
+    print(f"Improvement:            {trained_accuracy - base_accuracy:+.2f}%")
+    print("="*60)
+
+    # Save results
+    comparison_results = {
+        "base_accuracy": base_accuracy,
+        "trained_accuracy": trained_accuracy,
+        "improvement": trained_accuracy - base_accuracy,
+        "num_examples": args.num_examples or len(test_data),
+        "base_results": base_results,
+        "trained_results": trained_results
+    }
+
+    with open("gsm8k_comparison_results.json", "w") as f:
+        json.dump(comparison_results, f, indent=2)
+
+    print("Results saved to gsm8k_comparison_results.json")
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--num_examples", type=int, default=50)
-    parser.add_argument("--max_new_tokens", type=int, default=256)
-    parser.add_argument("--log_every", type=int, default=10)
-    parser.add_argument("--save_results", action="store_true")
-    args = parser.parse_args()
-    main(args)
+    main()

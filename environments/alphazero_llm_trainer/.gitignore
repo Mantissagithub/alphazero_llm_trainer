@@ -9,3 +9,4 @@ checkpoints/
 *.safetensors
 .venv/
 venv/
+/student_final_model/
