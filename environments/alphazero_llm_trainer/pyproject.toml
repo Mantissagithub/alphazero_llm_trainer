@@ -37,3 +37,14 @@ packages = ["."]
 
 [tool.verifiers]
 training_script = "train_vllm.py"
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+
+
+
+[tool.uv.extra-build-dependencies]
+flash-attn = ["torch"]
+=======
+>>>>>>> ce51a97 (Update version to 0.1.10 in root pyproject.toml and 0.1.13 in environment-specific pyproject.toml. Enhance .gitignore to exclude student_final_model directory. Refactor test_gsm8k.py to include a new load_trained_model function and improve evaluation logic for model accuracy comparison.)
+>>>>>>> 1653413 (Update version to 0.1.10 in root pyproject.toml and 0.1.13 in environment-specific pyproject.toml. Enhance .gitignore to exclude student_final_model directory. Refactor test_gsm8k.py to include a new load_trained_model function and improve evaluation logic for model accuracy comparison.)
