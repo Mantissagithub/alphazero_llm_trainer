@@ -244,7 +244,7 @@ def main():
     print("=" * 80)
 
     if not torch.cuda.is_available():
-        print("❌ No GPU found! vLLM requires CUDA.")
+        print("No GPU found! vLLM requires CUDA.")
         return
 
     gpu_name = torch.cuda.get_device_name(0)
@@ -268,7 +268,7 @@ def main():
     print(f"✓ dataset: {len(env.dataset)} examples")
 
     if num_examples > len(env.dataset):
-        print(f"⚠️  Warning: Requested {num_examples} examples, but dataset only has {len(env.dataset)}. Using {len(env.dataset)} instead.")
+        print(f"Warning: Requested {num_examples} examples, but dataset only has {len(env.dataset)}. Using {len(env.dataset)} instead.")
         num_examples = len(env.dataset)
 
     checkpoint_path = Path(checkpoint_dir)
