@@ -6,6 +6,7 @@ import torch
 from pathlib import Path
 import argparse
 from typing import Dict, List
+from datasets import load_dataset
 
 sys.path.insert(0, str(Path(__file__).parent / "environments" / "alphazero_llm_trainer"))
 
@@ -54,6 +55,12 @@ def parse_args():
         action='store_true',
         default=False,
         help='Use legacy training mode (overrides config)'
+    )
+    parser.add_argument(
+        '--eval-size',
+        type=int,
+        default=None,
+        help='Number of test examples for evaluation (overrides config)'
     )
     return parser.parse_args()
 
@@ -150,18 +157,81 @@ def train_on_trajectories_legacy(
     print(f"    loss: {avg_loss:.4f}")
 
 
+def evaluate_on_gsm8k(
+    student_model: StudentModel,
+    num_test_examples: int = 100,
+    max_new_tokens: int = 512
+):
+    print("\n" + "=" * 80)
+    print("evaluating on gsm8k test set")
+    print("=" * 80)
+
+    test_dataset = load_dataset("openai/gsm8k", "main", split="test")
+
+    if num_test_examples and num_test_examples < len(test_dataset):
+        test_dataset = test_dataset.select(range(num_test_examples))
+        print(f"evaluating on {num_test_examples} test examples")
+    else:
+        print(f"evaluating on full test set ({len(test_dataset)} examples)")
+
+    student_model.prepare_for_inference()
+
+    correct = 0
+    total = len(test_dataset)
+
+    for idx, example in enumerate(test_dataset):
+        question = example["question"]
+        ground_truth_answer = example["answer"]
+
+        prompt = f"Question: {question}\n\nLet's solve this step by step:\n"
+
+        try:
+            response = student_model.generate(
+                prompt=prompt,
+                max_new_tokens=max_new_tokens,
+                temperature=0.0,
+                top_p=1.0
+            )
+
+            predicted_answer = normalize_answer(response)
+            correct_answer = normalize_answer(ground_truth_answer)
+
+            is_correct = False
+            if predicted_answer is not None and correct_answer is not None:
+                is_correct = abs(predicted_answer - correct_answer) < 1e-6
+
+            if is_correct:
+                correct += 1
+
+            if (idx + 1) % 10 == 0:
+                current_accuracy = (correct / (idx + 1)) * 100
+                print(f"[{idx + 1}/{total}] accuracy: {current_accuracy:.2f}% ({correct}/{idx + 1})")
+
+        except Exception as e:
+            print(f"  ⚠️  error on example {idx + 1}: {str(e)}")
+            continue
+
+    final_accuracy = (correct / total) * 100
+
+    print("\n" + "=" * 80)
+    print("evaluation complete!")
+    print("=" * 80)
+    print(f"test accuracy: {final_accuracy:.2f}% ({correct}/{total})")
+    print("=" * 80)
+
+    return final_accuracy, correct, total
+
+
 
 def main():
     args = parse_args()
     config = get_training_config()
 
-    # Use config values with optional arg overrides
     num_examples = args.num_examples if args.num_examples is not None else config["dataset"]["train_size"]
     checkpoint_dir = args.checkpoint_dir if args.checkpoint_dir is not None else config["checkpointing"]["save_dir"]
     save_interval = args.save_every if args.save_every is not None else config["logging"]["save_interval"]
     log_interval = args.log_interval if args.log_interval is not None else config["logging"]["log_interval"]
 
-    # Determine training mode from config or args
     if args.use_legacy:
         use_grpo = False
     elif args.use_grpo is not None:
@@ -197,7 +267,6 @@ def main():
     env = vf.load_environment("alphazero-llm-trainer", use_student_model=True)
     print(f"✓ dataset: {len(env.dataset)} examples")
 
-    # Ensure num_examples doesn't exceed dataset size
     if num_examples > len(env.dataset):
         print(f"⚠️  Warning: Requested {num_examples} examples, but dataset only has {len(env.dataset)}. Using {len(env.dataset)} instead.")
         num_examples = len(env.dataset)
@@ -318,6 +387,13 @@ def main():
 
     final_vram_gb = torch.cuda.max_memory_allocated() / 1e9
     print(f"\n📊 peak vram usage: {final_vram_gb:.2f} GB")
+
+    test_eval_size = args.eval_size if args.eval_size is not None else config["dataset"].get("eval_size", 100)
+    evaluate_on_gsm8k(
+        student_model=student_model,
+        num_test_examples=test_eval_size,
+        max_new_tokens=512
+    )
 
 
 if __name__ == "__main__":
