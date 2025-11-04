@@ -3,9 +3,10 @@
 import os
 import sys
 import torch
+import random
 from pathlib import Path
 import argparse
-from typing import Dict, List
+from typing import Dict, List, Set
 from datasets import load_dataset
 
 sys.path.insert(0, str(Path(__file__).parent / "environments" / "alphazero_llm_trainer"))
@@ -239,7 +240,6 @@ def main():
     else:
         use_grpo = config["student_training"]["grpo"]["enabled"]
 
-    # Read MCTS config overrides from environment variables
     max_tree_depth = int(os.getenv('MAX_TREE_DEPTH', config['mcts']['max_tree_depth']))
     num_mcts_iterations = int(os.getenv('NUM_MCTS_ITERATIONS', config['mcts']['num_iterations']))
 
@@ -301,7 +301,11 @@ def main():
     print(f"available: {gpu_memory_gb - vram_reserved_gb:.2f} GB")
     print("=" * 80)
 
-    dataset_subset = env.dataset.select(range(num_examples))
+    total_dataset_size = len(env.dataset)
+    visited_indices: Set[int] = set()
+    available_indices = list(range(total_dataset_size))
+
+    num_examples_to_process = num_examples
 
     update_ref_every = config["student_training"]["kl_penalty"]["update_ref_every"]
 
@@ -309,14 +313,27 @@ def main():
     total_reward = 0.0
 
     print("\n" + "=" * 80)
-    print(f"starting training ({len(dataset_subset)} examples)")
+    print(f"starting training ({num_examples_to_process} examples)")
+    print(f"dataset pool size: {total_dataset_size} examples")
+    print(f"sampling strategy: random without replacement (cycles when exhausted)")
     print("=" * 80)
 
-    for idx, example in enumerate(dataset_subset):
+    for idx in range(num_examples_to_process):
+        if len(visited_indices) >= total_dataset_size:
+            print(f"\n🔄 all {total_dataset_size} examples visited! resetting visited state...")
+            visited_indices.clear()
+            available_indices = list(range(total_dataset_size))
+
+        unvisited_indices = [i for i in available_indices if i not in visited_indices]
+        selected_idx = random.choice(unvisited_indices)
+        visited_indices.add(selected_idx)
+
+        example = env.dataset[selected_idx]
         question = example['prompt']  # verifiers dataset uses 'prompt' key
         reference = example['answer']
 
-        print(f"\n[{idx + 1}/{len(dataset_subset)}] {question[:70]}...")
+        print(f"\n[{idx + 1}/{num_examples_to_process}] example #{selected_idx} | visited: {len(visited_indices)}/{total_dataset_size}")
+        print(f"    {question[:70]}...")
 
         correct_answer = normalize_answer(reference)
         hre = HardRewardEstimator(terminal_checker, correct_answer)
@@ -372,17 +389,19 @@ def main():
             acc = total_correct / (idx + 1)
             avg_r = total_reward / (idx + 1)
             print("\n" + "-" * 80)
-            print(f"📊 progress [{idx + 1}/{len(dataset_subset)}]")
+            print(f"📊 progress [{idx + 1}/{num_examples_to_process}]")
             print(f"   accuracy: {acc:.2%} | avg reward: {avg_r:.3f}")
+            print(f"   unique examples seen: {len(visited_indices)}/{total_dataset_size}")
             print("-" * 80)
 
-    accuracy = total_correct / len(dataset_subset)
-    avg_reward = total_reward / len(dataset_subset)
+    accuracy = total_correct / num_examples_to_process
+    avg_reward = total_reward / num_examples_to_process
 
     print("\n" + "=" * 80)
     print("training complete!")
     print("=" * 80)
-    print(f"total examples: {len(dataset_subset)}")
+    print(f"total examples processed: {num_examples_to_process}")
+    print(f"unique examples seen: {len(visited_indices)}")
     print(f"total correct: {total_correct}")
     print(f"accuracy: {accuracy:.2%}")
     print(f"avg reward: {avg_reward:.3f}")
