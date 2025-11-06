@@ -66,7 +66,7 @@ student_training:
     clip_advantages: 3.0
     min_group_size: 1
     use_legacy_loss: false
-    micro_batch_size: 4  # Process trajectories in smaller batches to save GPU memory
+    micro_batch_size: 2  # Process trajectories in smaller batches to save GPU memory (reduced to prevent OOM)
 
   # kl penalty settings
   kl_penalty:

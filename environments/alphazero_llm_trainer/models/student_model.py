@@ -21,11 +21,10 @@ class StudentModel:
         self.load_in_4bit = load_in_4bit
         self.device = device
 
-        # Ensure learning_rate is a float
         if learning_rate is not None:
             self.learning_rate = float(learning_rate)
         else:
-            self.learning_rate = 2e-5  # Default fallback
+            self.learning_rate = 2e-5
 
         self.model = None
         self.tokenizer = None
@@ -44,10 +43,9 @@ class StudentModel:
 
         self.ref_model.eval()
 
-        # Move ref_model to CPU to save GPU memory
-        self.ref_model.to('cpu')
+        # stays on gpu, unsloth needs gpu (triton kernels won't work on cpu)
 
-        print("ref model created and moved to CPU")
+        print("ref model created")
 
     def update_ref_model(self):
         print("updating ref model for kl penalty")
@@ -134,8 +132,8 @@ class StudentModel:
         trajectories: list,
         beta: float = 0.1,
         clip_advantages: float = 3.0,
-        kl_weight: float = 0.01, # kl penality weight
-        micro_batch_size: int = 8  # Process trajectories in smaller batches
+        kl_weight: float = 0.01,
+        micro_batch_size: int = 2  # small batches to avoid oom
     ) -> torch.Tensor:
         if not trajectories:
             return torch.tensor(0.0, device=self.model.device)
@@ -156,7 +154,6 @@ class StudentModel:
         total_loss = 0.0
         total_kl_loss = 0.0
 
-        # Process trajectories in micro-batches to save memory
         num_batches = (len(trajectories) + micro_batch_size - 1) // micro_batch_size
 
         for batch_idx in range(num_batches):
@@ -176,12 +173,10 @@ class StudentModel:
                     padding=False
                 ).to(self.model.device)
 
-                # Get main model outputs
                 outputs = self.model(**inputs)
                 logits = outputs.logits
-                del outputs  # Free immediately
+                del outputs  # free asap
 
-                # Compute log probs for the shifted sequence
                 token_ids = inputs['input_ids'][:, 1:]
                 shifted_logits = logits[:, :-1, :]
 
@@ -191,20 +186,18 @@ class StudentModel:
                     index=token_ids.unsqueeze(-1)
                 ).squeeze(-1)
 
-                # Compute policy gradient loss
                 pg_loss = -(selected_log_probs.mean() * advantage)
 
-                # Compute reference model outputs on CPU, transfer only what we need
+                # ref model on gpu (unsloth needs gpu)
                 with torch.no_grad():
-                    inputs_cpu = {k: v.cpu() for k, v in inputs.items()}
-                    ref_outputs = self.ref_model(**inputs_cpu)
-                    # Move only the needed part to GPU
-                    ref_logits_shifted = ref_outputs.logits[:, :-1, :].to(self.model.device)
-                    del ref_outputs, inputs_cpu
+                    ref_outputs = self.ref_model(**inputs)
+                    ref_logits_shifted = ref_outputs.logits[:, :-1, :].detach()
+                    del ref_outputs
+                    torch.cuda.empty_cache()  # clear cache aggressively
 
                 ref_log_probs = torch.nn.functional.log_softmax(ref_logits_shifted, dim=-1)
 
-                # Compute KL divergence efficiently (in log space to save memory)
+                # kl div in log space (saves memory)
                 kl_div = torch.nn.functional.kl_div(
                     ref_log_probs,
                     log_probs,
@@ -214,23 +207,21 @@ class StudentModel:
                 kl_penalty = kl_weight * kl_div
                 total_kl_loss += kl_div.item()
 
-                del ref_logits_shifted, ref_log_probs
+                del ref_logits_shifted, ref_log_probs, kl_div
 
-                # Compute entropy (reuse log_probs, compute probs on-the-fly)
+                # compute entropy on the fly
                 probs = torch.nn.functional.softmax(shifted_logits, dim=-1)
                 entropy = -(probs * log_probs).sum(dim=-1).mean()
                 entropy_bonus = -beta * entropy
 
-                # Total loss for this trajectory
                 traj_loss = pg_loss + kl_penalty + entropy_bonus
                 total_loss += traj_loss
 
-                # Clean up to free memory
+                # cleanup memory
                 del inputs, logits, shifted_logits, log_probs, token_ids
-                del selected_log_probs, probs, entropy, kl_div
+                del selected_log_probs, probs, entropy
                 del pg_loss, kl_penalty, entropy_bonus, traj_loss
 
-            # Clear CUDA cache after each micro-batch
             torch.cuda.empty_cache()
 
         avg_loss = total_loss / len(trajectories)
