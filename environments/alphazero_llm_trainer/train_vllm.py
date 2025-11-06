@@ -79,6 +79,7 @@ def train_on_trajectories_grpo(
     beta = grpo_config["beta"]
     clip_advantages = grpo_config["clip_advantages"]
     normalize_advantages = grpo_config["normalize_advantages"]
+    micro_batch_size = grpo_config.get("micro_batch_size", 4)
 
     kl_config = config["student_training"]["kl_penalty"]
     kl_weight = kl_config["kl_weight"]
@@ -98,7 +99,8 @@ def train_on_trajectories_grpo(
         grouped_trajs,
         beta=beta,
         clip_advantages=clip_advantages if normalize_advantages else 0.0,
-        kl_weight=kl_weight
+        kl_weight=kl_weight,
+        micro_batch_size=micro_batch_size
     )
 
     grpo_loss.backward()

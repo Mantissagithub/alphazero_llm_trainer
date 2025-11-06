@@ -44,7 +44,10 @@ class StudentModel:
 
         self.ref_model.eval()
 
-        print("ref model created")
+        # Move reference model to CPU to save GPU memory
+        self.ref_model = self.ref_model.to('cpu')
+
+        print("ref model created (on CPU)")
 
     def update_ref_model(self):
         print("updating ref model for kl penalty")
@@ -131,7 +134,8 @@ class StudentModel:
         trajectories: list,
         beta: float = 0.1,
         clip_advantages: float = 3.0,
-        kl_weight: float = 0.01 # kl penality weight
+        kl_weight: float = 0.01, # kl penality weight
+        micro_batch_size: int = 8  # Process trajectories in smaller batches
     ) -> torch.Tensor:
         if not trajectories:
             return torch.tensor(0.0, device=self.model.device)
@@ -152,52 +156,75 @@ class StudentModel:
         total_loss = 0.0
         total_kl_loss = 0.0
 
-        for traj, advantage in zip(trajectories, advantages):
-            text = traj['text']
+        # Process trajectories in micro-batches to save memory
+        num_batches = (len(trajectories) + micro_batch_size - 1) // micro_batch_size
 
-            inputs = self.tokenizer(
-                text,
-                return_tensors="pt",
-                truncation=True,
-                max_length=self.max_seq_length,
-                padding=False
-            ).to(self.model.device)
+        for batch_idx in range(num_batches):
+            start_idx = batch_idx * micro_batch_size
+            end_idx = min(start_idx + micro_batch_size, len(trajectories))
+            batch_trajectories = trajectories[start_idx:end_idx]
+            batch_advantages = advantages[start_idx:end_idx]
 
-            outputs = self.model(**inputs)
-            logits = outputs.logits
+            for traj, advantage in zip(batch_trajectories, batch_advantages):
+                text = traj['text']
 
-            log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
+                inputs = self.tokenizer(
+                    text,
+                    return_tensors="pt",
+                    truncation=True,
+                    max_length=self.max_seq_length,
+                    padding=False
+                ).to(self.model.device)
 
-            with torch.no_grad():
-                ref_outputs = self.ref_model(**inputs)
-                ref_logits = ref_outputs.logits
-                ref_log_probs = torch.nn.functional.log_softmax(ref_logits, dim=-1)
+                outputs = self.model(**inputs)
+                logits = outputs.logits
 
-            token_ids = inputs['input_ids'][:, 1:]
-            shifted_log_probs = log_probs[:, :-1, :]
-            shifted_ref_log_probs = ref_log_probs[:, :-1, :]
+                log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
 
-            selected_log_probs = shifted_log_probs.gather(
-                dim=-1,
-                index=token_ids.unsqueeze(-1)
-            ).squeeze(-1)
+                # Compute reference model outputs on CPU to save GPU memory
+                with torch.no_grad():
+                    inputs_cpu = {k: v.to('cpu') for k, v in inputs.items()}
+                    ref_outputs = self.ref_model(**inputs_cpu)
+                    ref_logits = ref_outputs.logits.to(self.model.device)
+                    ref_log_probs = torch.nn.functional.log_softmax(ref_logits, dim=-1)
 
-            # pg_loss = -(selected_log_probs.sum() * advantage)
-            pg_loss = -(selected_log_probs.mean() * advantage)
+                    # Clear CPU tensors immediately
+                    del inputs_cpu, ref_outputs
 
-            probs = torch.nn.functional.softmax(logits[:, :-1, :], dim=-1)
-            ref_probs = torch.nn.functional.softmax(ref_logits[:, :-1, :], dim=-1)
+                token_ids = inputs['input_ids'][:, 1:]
+                shifted_log_probs = log_probs[:, :-1, :]
+                shifted_ref_log_probs = ref_log_probs[:, :-1, :]
 
-            kl_div = (probs * (shifted_log_probs - shifted_ref_log_probs)).sum()
-            kl_penalty = kl_weight * kl_div
+                selected_log_probs = shifted_log_probs.gather(
+                    dim=-1,
+                    index=token_ids.unsqueeze(-1)
+                ).squeeze(-1)
 
-            total_kl_loss += kl_div.item()
+                # pg_loss = -(selected_log_probs.sum() * advantage)
+                pg_loss = -(selected_log_probs.mean() * advantage)
 
-            entropy = -(probs * shifted_log_probs).sum(dim=-1).mean()
-            entropy_bonus = -beta * entropy
+                probs = torch.nn.functional.softmax(logits[:, :-1, :], dim=-1)
+                ref_probs = torch.nn.functional.softmax(ref_logits[:, :-1, :], dim=-1)
 
-            traj_loss = pg_loss + kl_penalty + entropy_bonus
-            total_loss += traj_loss
+                kl_div = (probs * (shifted_log_probs - shifted_ref_log_probs)).sum()
+                kl_penalty = kl_weight * kl_div
+
+                total_kl_loss += kl_div.item()
+
+                entropy = -(probs * shifted_log_probs).sum(dim=-1).mean()
+                entropy_bonus = -beta * entropy
+
+                traj_loss = pg_loss + kl_penalty + entropy_bonus
+                total_loss += traj_loss
+
+                # Clean up to free memory
+                del inputs, outputs, logits, log_probs, ref_logits, ref_log_probs
+                del token_ids, shifted_log_probs, shifted_ref_log_probs
+                del selected_log_probs, probs, ref_probs, kl_div, entropy
+                del pg_loss, kl_penalty, entropy_bonus, traj_loss
+
+            # Clear CUDA cache after each micro-batch
+            torch.cuda.empty_cache()
 
         avg_loss = total_loss / len(trajectories)
 
