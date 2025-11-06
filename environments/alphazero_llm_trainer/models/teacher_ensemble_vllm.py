@@ -12,7 +12,7 @@ class VLLMTeacherEnsemble:
             "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
             "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
             "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
-            "unsloth/Phi-3.5-mini-instruct-bnb-4bit",
+            # "unsloth/Phi-3.5-mini-instruct-bnb-4bit",
             "unsloth/gemma-2-9b-it-bnb-4bit"
         ]
 
@@ -22,7 +22,7 @@ class VLLMTeacherEnsemble:
 
         for idx, model_name in enumerate(teacher_configs, 1):
             short_name = model_name.split('/')[-1]
-            print(f"[{idx}/5] initializing {short_name}...")
+            print(f"[{idx}/4] initializing {short_name}...")
 
             llm = LLM(
               model=model_name,
