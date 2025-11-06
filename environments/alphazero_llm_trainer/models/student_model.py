@@ -44,10 +44,7 @@ class StudentModel:
 
         self.ref_model.eval()
 
-        # Move reference model to CPU to save GPU memory
-        self.ref_model = self.ref_model.to('cpu')
-
-        print("ref model created (on CPU)")
+        print("ref model created")
 
     def update_ref_model(self):
         print("updating ref model for kl penalty")
@@ -181,15 +178,14 @@ class StudentModel:
 
                 log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
 
-                # Compute reference model outputs on CPU to save GPU memory
+                # Compute reference model outputs (no gradient needed)
                 with torch.no_grad():
-                    inputs_cpu = {k: v.to('cpu') for k, v in inputs.items()}
-                    ref_outputs = self.ref_model(**inputs_cpu)
-                    ref_logits = ref_outputs.logits.to(self.model.device)
+                    ref_outputs = self.ref_model(**inputs)
+                    ref_logits = ref_outputs.logits
                     ref_log_probs = torch.nn.functional.log_softmax(ref_logits, dim=-1)
 
-                    # Clear CPU tensors immediately
-                    del inputs_cpu, ref_outputs
+                    # Clear reference outputs immediately
+                    del ref_outputs
 
                 token_ids = inputs['input_ids'][:, 1:]
                 shifted_log_probs = log_probs[:, :-1, :]
