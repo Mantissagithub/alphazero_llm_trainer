@@ -44,7 +44,10 @@ class StudentModel:
 
         self.ref_model.eval()
 
-        print("ref model created")
+        # Move ref_model to CPU to save GPU memory
+        self.ref_model.to('cpu')
+
+        print("ref model created and moved to CPU")
 
     def update_ref_model(self):
         print("updating ref model for kl penalty")
@@ -173,50 +176,58 @@ class StudentModel:
                     padding=False
                 ).to(self.model.device)
 
+                # Get main model outputs
                 outputs = self.model(**inputs)
                 logits = outputs.logits
+                del outputs  # Free immediately
 
-                log_probs = torch.nn.functional.log_softmax(logits, dim=-1)
-
-                # Compute reference model outputs (no gradient needed)
-                with torch.no_grad():
-                    ref_outputs = self.ref_model(**inputs)
-                    ref_logits = ref_outputs.logits
-                    ref_log_probs = torch.nn.functional.log_softmax(ref_logits, dim=-1)
-
-                    # Clear reference outputs immediately
-                    del ref_outputs
-
+                # Compute log probs for the shifted sequence
                 token_ids = inputs['input_ids'][:, 1:]
-                shifted_log_probs = log_probs[:, :-1, :]
-                shifted_ref_log_probs = ref_log_probs[:, :-1, :]
+                shifted_logits = logits[:, :-1, :]
 
-                selected_log_probs = shifted_log_probs.gather(
+                log_probs = torch.nn.functional.log_softmax(shifted_logits, dim=-1)
+                selected_log_probs = log_probs.gather(
                     dim=-1,
                     index=token_ids.unsqueeze(-1)
                 ).squeeze(-1)
 
-                # pg_loss = -(selected_log_probs.sum() * advantage)
+                # Compute policy gradient loss
                 pg_loss = -(selected_log_probs.mean() * advantage)
 
-                probs = torch.nn.functional.softmax(logits[:, :-1, :], dim=-1)
-                ref_probs = torch.nn.functional.softmax(ref_logits[:, :-1, :], dim=-1)
+                # Compute reference model outputs on CPU, transfer only what we need
+                with torch.no_grad():
+                    inputs_cpu = {k: v.cpu() for k, v in inputs.items()}
+                    ref_outputs = self.ref_model(**inputs_cpu)
+                    # Move only the needed part to GPU
+                    ref_logits_shifted = ref_outputs.logits[:, :-1, :].to(self.model.device)
+                    del ref_outputs, inputs_cpu
 
-                kl_div = (probs * (shifted_log_probs - shifted_ref_log_probs)).sum()
+                ref_log_probs = torch.nn.functional.log_softmax(ref_logits_shifted, dim=-1)
+
+                # Compute KL divergence efficiently (in log space to save memory)
+                kl_div = torch.nn.functional.kl_div(
+                    ref_log_probs,
+                    log_probs,
+                    reduction='batchmean',
+                    log_target=True
+                )
                 kl_penalty = kl_weight * kl_div
-
                 total_kl_loss += kl_div.item()
 
-                entropy = -(probs * shifted_log_probs).sum(dim=-1).mean()
+                del ref_logits_shifted, ref_log_probs
+
+                # Compute entropy (reuse log_probs, compute probs on-the-fly)
+                probs = torch.nn.functional.softmax(shifted_logits, dim=-1)
+                entropy = -(probs * log_probs).sum(dim=-1).mean()
                 entropy_bonus = -beta * entropy
 
+                # Total loss for this trajectory
                 traj_loss = pg_loss + kl_penalty + entropy_bonus
                 total_loss += traj_loss
 
                 # Clean up to free memory
-                del inputs, outputs, logits, log_probs, ref_logits, ref_log_probs
-                del token_ids, shifted_log_probs, shifted_ref_log_probs
-                del selected_log_probs, probs, ref_probs, kl_div, entropy
+                del inputs, logits, shifted_logits, log_probs, token_ids
+                del selected_log_probs, probs, entropy, kl_div
                 del pg_loss, kl_penalty, entropy_bonus, traj_loss
 
             # Clear CUDA cache after each micro-batch
