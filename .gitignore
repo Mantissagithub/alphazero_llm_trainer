@@ -10,4 +10,7 @@ wheels/
 .venv
 
 # unsloth compiled cahce
-unsloth_compile_cache/
+unsloth_compile_cache/student_final_model/
+student_final_model/
+student_final_model2/
+*.safetensors
