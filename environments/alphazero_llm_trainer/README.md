@@ -319,16 +319,59 @@ expected output:
 ✓ is_completed: token budget check works
 ```
 
-## expected performance
+## results
 
-typical results on gsm8k (may vary by hardware and model selection):
+### actual training results
 
-| depth | iterations | est. accuracy | time/sample | hardware |
-|-------|------------|---------------|-------------|----------|
-| 5 | 30-40 | ~55-65% | 2-5 min | laptop/cpu |
-| 12 | 60 | ~70-80% | 5-10 min | single gpu |
-| 20 | 100 | ~80-90% | 10-15 min | a100 |
-| 50 | 200+ | ~85-95% | 15-20 min | h100 |
+**latest training run (minimal configuration):**
 
-*actual performance depends on model selection, teacher quality, and training configuration
+```bash
+MAX_TREE_DEPTH=30 NUM_MCTS_ITERATIONS=100 python train_vllm.py \
+  --num-examples 10 \
+  --eval-size 1319 \
+  --checkpoint-dir ./checkpoints/a100_depth30_10examples \
+  --save-every 5 \
+  --log-interval 2
+```
 
+**training configuration:**
+- training examples: 10
+- tree depth: 30
+- mcts iterations: 100 per example
+- teacher ensemble: 4 models (10% gpu each)
+  - qwen2.5-7b-instruct-bnb-4bit
+  - meta-llama-3.1-8b-instruct-bnb-4bit
+  - mistral-7b-instruct-v0.3-bnb-4bit
+  - gemma-2-9b-it-bnb-4bit
+- terminal checker: qwen2.5-0.5b-instruct (5% gpu, max_len=512)
+- hardware: a100 gpu
+
+**results:**
+
+```
+[TRAINED] Final Accuracy: 14.63% (193/1319)
+
+===================================================
+COMPARISON SUMMARY
+===================================================
+Base Model Accuracy:    12.89%
+Trained Model Accuracy: 14.63%
+Improvement:            +1.74%
+===================================================
+```
+
+Results saved to [gsm8k_comparison_results.json](gsm8k_comparison_results.json)
+
+**key metrics:**
+- base model: 12.89% accuracy on gsm8k
+- trained model: 14.63% accuracy on gsm8k
+- absolute improvement: +1.74 percentage points
+- relative improvement: +13.5% over base model
+- evaluation set: 1,319 problems
+- total training examples: 10 only
+
+**notes:**
+- this is a minimal proof-of-concept run with only 10 training examples
+- demonstrates +1.74% improvement even with minimal training data
+- 4 quantized teacher models (bitsandbytes 4-bit) with vllm backend
+- efficient gpu utilization: 40% (teachers) + 5% (checker) = 45% total
