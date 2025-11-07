@@ -21,7 +21,7 @@ def load_trained_model():
     from unsloth import FastLanguageModel
 
     model, tokenizer = FastLanguageModel.from_pretrained(
-        model_name="./student_final_model",
+        model_name="./student_final_model2",
         max_seq_length=2048,
         dtype=None,
         load_in_4bit=True,
@@ -103,18 +103,18 @@ def main():
     dataset = load_dataset("openai/gsm8k", "main")
     test_data = dataset["test"]
 
-    # # Evaluate base model
-    # print("\n" + "="*60)
-    # print("EVALUATING BASE MODEL: unsloth/llama-3.2-3b-bnb-4bit")
-    # print("="*60)
-    # model_base, tokenizer_base = load_base_model()
-    # base_accuracy, base_results = evaluate_model(
-    #     model_base, tokenizer_base, test_data,
-    #     model_name="BASE",
-    #     num_examples=args.num_examples
-    # )
-    # del model_base
-    base_accuracy = 13.58
+    # Evaluate base model
+    print("\n" + "="*60)
+    print("EVALUATING BASE MODEL: unsloth/llama-3.2-3b-bnb-4bit")
+    print("="*60)
+    model_base, tokenizer_base = load_base_model()
+    base_accuracy, base_results = evaluate_model(
+        model_base, tokenizer_base, test_data,
+        model_name="BASE",
+        num_examples=args.num_examples
+    )
+    del model_base
+    # base_accuracy = 13.58
     torch.cuda.empty_cache()
 
     # Evaluate trained model
