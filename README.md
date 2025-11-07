@@ -574,14 +574,72 @@ production:
 
 ---
 
-## Performance Notes
+## Results
 
-**Training Metrics (50 examples on H100):**
+### Actual Training Results
+
+**Latest Training Run (Minimal Configuration):**
+
+```bash
+MAX_TREE_DEPTH=30 NUM_MCTS_ITERATIONS=100 python train_vllm.py \
+  --num-examples 10 \
+  --eval-size 1319 \
+  --checkpoint-dir ./checkpoints/a100_depth30_10examples \
+  --save-every 5 \
+  --log-interval 2
+```
+
+**Training Configuration:**
+- Training examples: 10
+- Tree depth: 30
+- MCTS iterations: 100 per example
+- Teacher ensemble: 4 models (10% GPU each)
+  - Qwen2.5-7B-Instruct (4-bit quantized)
+  - Meta-Llama-3.1-8B-Instruct (4-bit quantized)
+  - Mistral-7B-Instruct-v0.3 (4-bit quantized)
+  - Gemma-2-9B-IT (4-bit quantized)
+- Terminal checker: Qwen2.5-0.5B-Instruct (5% GPU, max_len=512)
+- Hardware: A100 GPU
+
+**Results:**
+
+```
+[TRAINED] Final Accuracy: 14.63% (193/1319)
+
+===================================================
+COMPARISON SUMMARY
+===================================================
+Base Model Accuracy:    12.89%
+Trained Model Accuracy: 14.63%
+Improvement:            +1.74%
+===================================================
+```
+
+**Key Metrics:**
+- Base model: 12.89% accuracy on GSM8K
+- Trained model: 14.63% accuracy on GSM8K
+- Absolute improvement: +1.74 percentage points
+- Relative improvement: +13.5% over base model
+- Evaluation set: 1,319 problems
+- Total training examples: 10 only
+
+**Notes:**
+- This is a minimal proof-of-concept run with only 10 training examples
+- Demonstrates +1.74% improvement even with minimal training data
+- 4 quantized teacher models (BitsAndBytes 4-bit) with vLLM backend
+- Efficient GPU utilization: 40% (teachers) + 5% (checker) = 45% total
+
+**Detailed results available in:**
+- `environments/alphazero_llm_trainer/gsm8k_comparison_results.json`
+
+### Performance Benchmarks
+
+**Expected Training Metrics (50 examples on H100):**
 - Average tree size: ~30-50 nodes per example
 - MCTS iterations: 60 per example
 - Training time: ~2-3 hours
 - Peak VRAM: ~40-50 GB
-- Accuracy: ~40-50% on GSM8K subset
+- Expected accuracy: ~40-50% on GSM8K subset (with full training)
 
 **Optimization Tips:**
 1. Use `bf16` precision on H100 (better than `fp16` for stability)
