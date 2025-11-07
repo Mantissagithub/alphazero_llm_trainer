@@ -426,3 +426,13 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# for the training,
+# python test.py
+# 2
+# 7473 -> train
+# 1319 -> test
+# need to use this fully, so need to show around 7000 examples to train, so for number of iterations, we need, let's keep 100 iterations, then we have 7000/100 = 70 examples per iteration. and let the depth also be around 15.
+
+# so command next time
+# MAX_TREE_DEPTH=15 NUM_MCTS_ITERATIONS=100 python train_vllm.py --num-examples 7000 --use-grpo
