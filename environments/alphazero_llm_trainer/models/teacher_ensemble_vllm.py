@@ -12,9 +12,16 @@ class VLLMTeacherEnsemble:
             "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
             "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
             "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
-            # "unsloth/Phi-3.5-mini-instruct-bnb-4bit",
             "unsloth/gemma-2-9b-it-bnb-4bit"
         ]
+        # teacher_configs = [
+        #     "unsloth/Qwen2.5-7B-Instruct-bnb-4bit",
+        #     "unsloth/Meta-Llama-3.1-8B-Instruct-bnb-4bit",
+        #     "unsloth/mistral-7b-instruct-v0.3-bnb-4bit",
+        #     # "unsloth/Phi-3.5-mini-instruct-bnb-4bit",
+        #     "unsloth/gemma-2-9b-it-bnb-4bit"
+        # ]
+
 
         print("\n" + "=" * 70)
         print("loading vllm teacher ensemble")
