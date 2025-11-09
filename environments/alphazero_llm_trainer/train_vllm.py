@@ -8,6 +8,7 @@ from pathlib import Path
 import argparse
 from typing import Dict, List, Set
 from datasets import load_dataset
+import wandb
 
 sys.path.insert(0, str(Path(__file__).parent / "environments" / "alphazero_llm_trainer"))
 
@@ -115,6 +116,7 @@ def train_on_trajectories_grpo(
     student_model.prepare_for_inference()
 
     print(f"    grpo loss: {grpo_loss.item():.4f}")
+    return grpo_loss.item()
 
 
 def train_on_trajectories_legacy(
@@ -210,6 +212,13 @@ def evaluate_on_gsm8k(
                 current_accuracy = (correct / (idx + 1)) * 100
                 print(f"[{idx + 1}/{total}] accuracy: {current_accuracy:.2f}% ({correct}/{idx + 1})")
 
+                # log evaluation progress to wandb
+                wandb.log({
+                    "eval_progress": (idx + 1) / total,
+                    "eval_current_accuracy": current_accuracy,
+                    "eval_step": idx + 1,
+                })
+
         except Exception as e:
             print(f"  ⚠️  error on example {idx + 1}: {str(e)}")
             continue
@@ -229,6 +238,12 @@ def evaluate_on_gsm8k(
 def main():
     args = parse_args()
     config = get_training_config()
+
+    # set wandb api key
+    os.environ['WANDB_API_KEY'] = 'aeb2dbe87d3fbe426e9644ef52d7ca5755cf1a78'
+
+    rewards = []
+    losses = []
 
     num_examples = args.num_examples if args.num_examples is not None else config["dataset"]["train_size"]
     checkpoint_dir = args.checkpoint_dir if args.checkpoint_dir is not None else config["checkpointing"]["save_dir"]
@@ -314,6 +329,34 @@ def main():
     total_correct = 0
     total_reward = 0.0
 
+    # initialize wandb
+    wandb.init(
+        project="alphazero-llm-trainer",
+        name=f"vllm_{'grpo' if use_grpo else 'legacy'}_{num_examples_to_process}_examples",
+        config={
+            "num_examples": num_examples_to_process,
+            "mcts_iterations": num_mcts_iterations,
+            "max_tree_depth": max_tree_depth,
+            "training_mode": "GRPO" if use_grpo else "Legacy",
+            "learning_rate": config["student_training"]["learning_rate"],
+            "max_grad_norm": config["training"]["max_grad_norm"],
+            "batch_size": config["training"]["batch_size"],
+            "save_interval": save_interval,
+            "log_interval": log_interval,
+            "gpu_name": gpu_name,
+            "gpu_memory_gb": gpu_memory_gb,
+        }
+    )
+
+    if use_grpo:
+        wandb.config.update({
+            "grpo_beta": config["student_training"]["grpo"]["beta"],
+            "grpo_clip_advantages": config["student_training"]["grpo"]["clip_advantages"],
+            "grpo_normalize_advantages": config["student_training"]["grpo"]["normalize_advantages"],
+            "grpo_micro_batch_size": config["student_training"]["grpo"].get("micro_batch_size", 4),
+            "kl_weight": config["student_training"]["kl_penalty"]["kl_weight"],
+        })
+
     print("\n" + "=" * 80)
     print(f"starting training ({num_examples_to_process} examples)")
     print(f"dataset pool size: {total_dataset_size} examples")
@@ -362,15 +405,30 @@ def main():
             total_correct += 1
 
         tree_size = result.get('tree_size', 0)
+        rewards.append(best_reward)
         print(f"  reward: {best_reward:.3f} | nodes: {tree_size} | trajectories: {len(trajectories)}")
+
+        # log per-example metrics to wandb
+        wandb.log({
+            "example_reward": best_reward,
+            "tree_size": tree_size,
+            "num_trajectories": len(trajectories),
+            "step": idx + 1,
+        })
 
         if trajectories:
             if use_grpo:
-                train_on_trajectories_grpo(
+                grpo_loss = train_on_trajectories_grpo(
                     student_model,
                     trajectories,
                     config
                 )
+                losses.append(grpo_loss)
+                # log grpo loss to wandb
+                wandb.log({
+                    "grpo_loss": grpo_loss,
+                    "step": idx + 1,
+                })
             else:
                 train_on_trajectories_legacy(
                     student_model,
@@ -396,8 +454,18 @@ def main():
             print(f"   unique examples seen: {len(visited_indices)}/{total_dataset_size}")
             print("-" * 80)
 
+            # log aggregate metrics to wandb
+            wandb.log({
+                "accuracy": acc,
+                "avg_reward": avg_r,
+                "unique_examples_seen": len(visited_indices),
+                "step": idx + 1,
+            })
+
     accuracy = total_correct / num_examples_to_process
     avg_reward = total_reward / num_examples_to_process
+    avg_loss = sum(losses) / len(losses) if losses else 0.0
+
 
     print("\n" + "=" * 80)
     print("training complete!")
@@ -407,7 +475,18 @@ def main():
     print(f"total correct: {total_correct}")
     print(f"accuracy: {accuracy:.2%}")
     print(f"avg reward: {avg_reward:.3f}")
+    print(f"avg loss: {avg_loss:.3f}")
     print("=" * 80)
+
+    # log final metrics to wandb
+    wandb.log({
+        "final_accuracy": accuracy,
+        "final_avg_reward": avg_reward,
+        "final_avg_loss": avg_loss,
+        "total_examples_processed": num_examples_to_process,
+        "unique_examples_seen": len(visited_indices),
+        "total_correct": total_correct,
+    })
 
     final = checkpoint_path / "student_final.pt"
     student_model.save_checkpoint(str(final))
@@ -416,12 +495,27 @@ def main():
     final_vram_gb = torch.cuda.max_memory_allocated() / 1e9
     print(f"\n📊 peak vram usage: {final_vram_gb:.2f} GB")
 
-    test_eval_size = args.eval_size if args.eval_size is not None else config["dataset"].get("eval_size", 100)
-    evaluate_on_gsm8k(
-        student_model=student_model,
-        num_test_examples=test_eval_size,
-        max_new_tokens=512
-    )
+    # log peak vram usage to wandb
+    wandb.log({
+        "peak_vram_gb": final_vram_gb,
+    })
+
+    # test_eval_size = args.eval_size if args.eval_size is not None else config["dataset"].get("eval_size", 100)
+    # final_test_accuracy, final_test_correct, final_test_total = evaluate_on_gsm8k(
+    #     student_model=student_model,
+    #     num_test_examples=test_eval_size,
+    #     max_new_tokens=512
+    # )
+    #
+    # # log evaluation metrics to wandb
+    # wandb.log({
+    #     "test_accuracy": final_test_accuracy,
+    #     "test_correct": final_test_correct,
+    #     "test_total": final_test_total,
+    # })
+
+    # finish wandb run
+    wandb.finish()
 
 
 if __name__ == "__main__":
@@ -435,4 +529,6 @@ if __name__ == "__main__":
 # need to use this fully, so need to show around 7000 examples to train, so for number of iterations, we need, let's keep 100 iterations, then we have 7000/100 = 70 examples per iteration. and let the depth also be around 15.
 
 # so command next time
+# MAX_TREE_DEPTH=15 NUM_MCTS_ITERATIONS=100 python train_vllm.py --num-examples 100 --use-grpo
+# MAX_TREE_DEPTH=15 NUM_MCTS_ITERATIONS=100 python train_vllm.py --num-examples 700 --use-grpo
 # MAX_TREE_DEPTH=15 NUM_MCTS_ITERATIONS=100 python train_vllm.py --num-examples 7000 --use-grpo
