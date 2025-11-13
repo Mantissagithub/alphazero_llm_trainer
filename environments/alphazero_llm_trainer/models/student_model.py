@@ -1,7 +1,7 @@
 from typing import Optional
 import torch
 from torch.optim import AdamW
-from unsloth import FastLanguageModel
+# unsloth import deferred to runtime (needs gpu access)
 from config import get_model_config
 import copy
 
@@ -56,6 +56,9 @@ class StudentModel:
         self._create_ref_model()
 
     def _load_model(self):
+        # import unsloth here so gpu check happens at runtime, not build time
+        from unsloth import FastLanguageModel
+
         lora_config = self.config["student_model"]["lora_config"]
 
         self.model, self.tokenizer = FastLanguageModel.from_pretrained(
@@ -113,6 +116,9 @@ class StudentModel:
         self.tokenizer.save_pretrained(path)
 
     def load(self, path: str):
+        # import unsloth here so gpu check happens at runtime, not build time
+        from unsloth import FastLanguageModel
+
         self.model = FastLanguageModel.from_pretrained(path)
         self.tokenizer = FastLanguageModel.from_pretrained(path)
 
