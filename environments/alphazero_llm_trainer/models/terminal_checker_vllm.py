@@ -1,36 +1,37 @@
 from typing import Optional
-from vllm import LLM, SamplingParams
+import os
+from openai import OpenAI
 from prompts import check_terminal_state_prompt, extract_answer_prompt, get_baseline_perplexity_prompt
 
 
 class VLLMTerminalChecker:
     def __init__(self, device="cuda:0"):
         self.device = device
-        model_name = "Qwen/Qwen2.5-0.5B-Instruct"
+        model_name = os.environ.get("TERMINAL_CHECKER_MODEL", "qwen/qwen-2.5-72b-instruct")
+        base_url = os.environ.get("PRIME_INFERENCE_URL", "https://api.pinference.ai/api/v1")
+        api_key = os.environ.get("PRIME_API_KEY", "")
 
-        print("\nloading terminal checker (vllm)...")
+        print("\nloading terminal checker (Prime Intellect API)...")
 
-        self.llm = LLM(
-            model=model_name,
-            dtype="float16",
-            gpu_memory_utilization=0.05,
-            max_model_len=512,
-            enforce_eager=True,
-            trust_remote_code=True,
-            disable_log_stats=True
+        self.model_name = model_name
+        self.client = OpenAI(
+            base_url=base_url,
+            api_key=api_key
         )
 
         print("✓ terminal checker ready")
 
     def _generate(self, prompt: str, max_tokens: int = 10) -> str:
-        sampling_params = SamplingParams(
-            temperature=0.0,
-            max_tokens=max_tokens,
-            skip_special_tokens=True
-        )
-
-        outputs = self.llm.generate([prompt], sampling_params)
-        return outputs[0].outputs[0].text.strip()
+        try:
+            result = self.client.chat.completions.create(
+                model=self.model_name,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=max_tokens,
+                temperature=0.0
+            )
+            return result.choices[0].message.content.strip()
+        except:
+            return ""
 
     def is_terminal(self, question: str, response: str) -> bool:
         if not response.strip():

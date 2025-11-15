@@ -2,9 +2,9 @@
 name = "alphazero-llm-trainer"
 description = "AlphaZero-inspired MCTS environment for training LLMs through tree search and policy learning with teacher ensemble guidance and dual reward systems"
 keywords = ["placeholder-tag", "train", "eval"]
-version = "0.1.26"
+version = "0.1.47"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 dependencies = [
     "datasets>=4.2.0",
     "numpy>=2.0.0,<2.3",  # Changed: numba 0.61.2 requires numpy<=2.2
@@ -34,6 +34,9 @@ packages = ["."]
 "rewards" = "alphazero_llm_trainer/rewards"
 "utils" = "alphazero_llm_trainer/utils"
 "alphazero_llm_trainer.py" = "alphazero_llm_trainer/__init__.py"
+
+[project.entry-points."verifiers.environments"]
+alphazero-llm-trainer = "alphazero_llm_trainer:load_environment"
 
 [tool.verifiers]
 training_script = "train_vllm.py"

@@ -1,0 +1,1 @@
+{"env": "alphazero-llm-trainer", "model": "qwen/qwen3-30b-a3b-thinking-2507", "num_examples": 10, "rollouts_per_example": 5, "sampling_args": {"max_tokens": null, "temperature": 0.1}, "date": "2025-11-15 03:29:07", "time_ms": 76043.72358322144, "avg_reward": 1.1649999999999996, "avg_correctness_reward": 0.9, "avg_format_reward": 0.92, "avg_efficiency_reward": 0.8099999999999993}

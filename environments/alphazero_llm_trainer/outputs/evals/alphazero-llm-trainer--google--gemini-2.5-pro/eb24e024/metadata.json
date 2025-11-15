@@ -1,0 +1,1 @@
+{"env": "alphazero-llm-trainer", "model": "google/gemini-2.5-pro", "num_examples": 10, "rollouts_per_example": 5, "sampling_args": {"max_tokens": null, "temperature": 0.1}, "date": "2025-11-15 03:24:27", "time_ms": 81612.9379272461, "avg_reward": 0.8412000000000002, "avg_correctness_reward": 0.68, "avg_format_reward": 0.5, "avg_efficiency_reward": 0.6119999999999997}

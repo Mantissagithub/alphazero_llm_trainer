@@ -1,0 +1,1 @@
+{"env": "alphazero-llm-trainer", "model": "x-ai/grok-4", "num_examples": 10, "rollouts_per_example": 5, "sampling_args": {"max_tokens": null, "temperature": 0.1}, "date": "2025-11-15 03:39:03", "time_ms": 160554.54897880554, "avg_reward": 0.9536000000000001, "avg_correctness_reward": 0.78, "avg_format_reward": 0.53, "avg_efficiency_reward": 0.6759999999999997}

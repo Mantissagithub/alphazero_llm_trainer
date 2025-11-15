@@ -24,11 +24,11 @@ from pathlib import Path
 import verifiers as vf
 from openai import OpenAI
 
-from core.mcts import MCTSSystem
-from models import TeacherEnsemble, StudentModel, TerminalChecker
-from rewards import CombinedRewardSystem, HardRewardEstimator, PerplexityRewardEstimator
-from utils import normalize_answer
-from config import get_training_config
+from alphazero_llm_trainer.core.mcts import MCTSSystem
+from alphazero_llm_trainer.models import TeacherEnsemble, StudentModel, TerminalChecker
+from alphazero_llm_trainer.rewards import CombinedRewardSystem, HardRewardEstimator, PerplexityRewardEstimator
+from alphazero_llm_trainer.utils import normalize_answer
+from alphazero_llm_trainer.config import get_training_config
 from dotenv import load_dotenv
 
 load_dotenv()  # Load environment variables from .env file if present
