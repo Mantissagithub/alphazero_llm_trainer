@@ -95,7 +95,7 @@ class MCTSSystem:
 
         all_outputs = right_outputs + wrong_outputs
 
-        from utils import calculate_local_similarity
+        from ..utils import calculate_local_similarity
         similarities = []
         for output in all_outputs:
             sim = calculate_local_similarity(student_token, output)

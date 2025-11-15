@@ -3,11 +3,11 @@ import re
 from typing import Tuple
 import torch
 from datasets import load_dataset
-from unsloth import FastLanguageModel
 from peft import PeftModel
 import json
 
 def load_base_model():
+    from unsloth import FastLanguageModel
     model, tokenizer = FastLanguageModel.from_pretrained(
         model_name="unsloth/llama-3.2-3b-bnb-4bit",
         max_seq_length=2048,

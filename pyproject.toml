@@ -2,7 +2,7 @@
 name = "alphazero-llm-trainer"
 description = "AlphaZero-inspired MCTS environment for training LLMs through tree search and policy learning with teacher ensemble guidance and dual reward systems"
 keywords = ["placeholder-tag", "train", "eval"]
-version = "0.1.11"
+version = "0.1.12"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

@@ -10,8 +10,6 @@ from typing import Dict, List, Set
 from datasets import load_dataset
 import wandb
 
-sys.path.insert(0, str(Path(__file__).parent / "environments" / "alphazero_llm_trainer"))
-
 import verifiers as vf
 from core.mcts import MCTSSystem
 from models import TeacherEnsemble, StudentModel, TerminalChecker
