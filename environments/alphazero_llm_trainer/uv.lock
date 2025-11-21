@@ -169,7 +169,7 @@ wheels = [
 
 [[package]]
 name = "alphazero-llm-trainer"
-version = "0.1.40"
+version = "0.1.48"
 source = { editable = "." }
 dependencies = [
     { name = "datasets" },

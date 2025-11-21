@@ -2,10 +2,12 @@ import os
 import asyncio
 import re
 import logging
+import math
 from typing import Dict, Optional, Any, List, Tuple, Callable
 import verifiers as vf
 from verifiers.types import Messages, State
 from datasets import Dataset
+from openai import AsyncOpenAI
 # from verifiers.parser import BaseParser
 
 logger = logging.getLogger(__name__)
@@ -166,6 +168,53 @@ class AlphaZeroLLMEnvironment(vf.MultiTurnEnv):
                 lambda: hre.calculate_reward(question_text, response_text, terminal_only=True)
             )
 
+        # async def baseline_perplexity_reward(
+        #     prompt: Messages,
+        #     completion: Messages,
+        #     answer: str,
+        #     state: State,
+        #     **kwargs
+        # ) -> float:
+        #     question_text = prompt[0]['content'] if prompt else ""
+        #     response_text = completion[-1]['content'] if completion else ""
+
+        #     if not response_text:
+        #         return 0.0
+
+        #     try:
+        #         api_key = os.environ.get("PRIME_API_KEY", "")
+        #         if not api_key:
+        #             return 0.0
+
+        #         base_url = os.environ.get("PRIME_INFERENCE_URL", "https://api.pinference.ai/api/v1")
+        #         client = AsyncOpenAI(base_url=base_url, api_key=api_key)
+
+        #         response_obj = await client.chat.completions.create(
+        #             model="z-ai/glm-4.5-air",
+        #             messages=[
+        #                 {"role": "user", "content": question_text},
+        #                 {"role": "assistant", "content": response_text[:20]},
+        #             ],
+        #             max_tokens=max(1, len(response_text) // 2),
+        #             temperature=0.2,
+        #             logprobs=True,
+        #             top_logprobs=1
+        #         )
+
+        #         print(f"response obj: {response_obj}")
+
+        #         if hasattr(response_obj.choices[0], 'logprobs') and response_obj.choices[0].logprobs:
+        #             logprobs_content = response_obj.choices[0].logprobs.content
+        #             if logprobs_content and len(logprobs_content) > 0:
+        #                 total_logprob = sum(lp.logprob for lp in logprobs_content)
+        #                 avg_logprob = total_logprob / len(logprobs_content)
+        #                 perplexity = math.exp(-avg_logprob)
+        #                 state['baseline_perplexity'] = perplexity
+        #                 return perplexity
+        #     except Exception as e:
+        #         logger.debug(f"baseline perplexity calculation failed: {e}")
+
+
         async def perplexity_reward(
             prompt: Messages,
             completion: Messages,
@@ -255,6 +304,10 @@ class AlphaZeroLLMEnvironment(vf.MultiTurnEnv):
             if use_student_model:
                 reward_funcs.append(perplexity_reward)
                 reward_weights.append(pre_weight or config.get("rewards", {}).get("pre_weight", 0.6))
+            else:
+                # add baseline perplexity tracking when not using student model
+                # reward_funcs.append(baseline_perplexity_reward)
+                reward_weights.append(0.0)
 
         parser = GSM8M_Parser()
         reward_funcs.append(parser.get_format_reward_func())

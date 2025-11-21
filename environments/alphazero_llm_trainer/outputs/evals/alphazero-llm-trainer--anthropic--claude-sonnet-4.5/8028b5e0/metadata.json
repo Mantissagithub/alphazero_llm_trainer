@@ -1,0 +1,1 @@
+{"env": "alphazero-llm-trainer", "model": "anthropic/claude-sonnet-4.5", "num_examples": 20, "rollouts_per_example": 3, "sampling_args": {"max_tokens": null}, "date": "2025-11-21 16:08:58", "time_ms": 94822.67022132874, "avg_reward": 0.8653333333333333, "avg_correctness_reward": 0.7333333333333333, "avg_format_reward": 0.5, "avg_efficiency_reward": 0.6599999999999995}
